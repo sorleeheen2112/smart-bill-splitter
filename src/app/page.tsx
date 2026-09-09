@@ -81,16 +81,19 @@ export default function Home() {
           loadedList = remoteBills;
         }
 
-        // Only fallback to localStorage if no remote bills exist
+        // If host has no bills yet in database, create a fresh first bill
         if (loadedList.length === 0) {
-          const local = loadPartyBillFromStorage();
-          if (local && (local.items?.length > 0 || local.members?.length > 1 || local.title)) {
-            loadedList = [local];
-            if (isSupabaseConfigured) {
-              await savePartyBillToSupabase(local, hostUser.id);
-            }
-          } else {
-            loadedList = [initialSamplePartyBill];
+          const freshBill: PartyBill = {
+            ...initialSamplePartyBill,
+            id: `party-${Date.now()}`,
+            title: `ปาร์ตี้ของ ${hostUser.firstName}`,
+            promptPayNumber: hostUser.defaultPromptPay || '',
+            promptPayName: `${hostUser.firstName} ${hostUser.lastName || ''}`.trim(),
+            date: new Date().toISOString().split('T')[0],
+          };
+          loadedList = [freshBill];
+          if (isSupabaseConfigured) {
+            await savePartyBillToSupabase(freshBill, hostUser.id);
           }
         }
 

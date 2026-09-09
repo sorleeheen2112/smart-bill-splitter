@@ -154,12 +154,12 @@ export async function savePartyBillToSupabase(bill: PartyBill, hostId?: string):
 }
 
 export async function fetchHostPartyBills(hostId: string): Promise<PartyBill[]> {
-  if (!isSupabaseConfigured) return [];
+  if (!isSupabaseConfigured || !hostId) return [];
   try {
     const { data, error } = await supabase
       .from('party_bills')
       .select('*')
-      .or(`host_id.eq.${hostId},host_id.is.null`)
+      .eq('host_id', hostId)
       .order('created_at', { ascending: false });
 
     if (error || !data) return [];
