@@ -20,6 +20,7 @@ import { calculatePartyBill } from '@/lib/calculator';
 import {
   loadPartyBillFromStorage,
   savePartyBillToStorage,
+  removePartyBillFromStorage,
 } from '@/lib/storage';
 import {
   fetchHostPartyBills,
@@ -80,19 +81,17 @@ export default function Home() {
           loadedList = remoteBills;
         }
 
-        // Also check if there is an existing local bill from storage
-        const local = loadPartyBillFromStorage();
-        if (local && (local.items?.length > 0 || local.members?.length > 1 || local.title)) {
-          if (!loadedList.some((b) => b.id === local.id)) {
-            loadedList = [local, ...loadedList];
+        // Only fallback to localStorage if no remote bills exist
+        if (loadedList.length === 0) {
+          const local = loadPartyBillFromStorage();
+          if (local && (local.items?.length > 0 || local.members?.length > 1 || local.title)) {
+            loadedList = [local];
             if (isSupabaseConfigured) {
               await savePartyBillToSupabase(local, hostUser.id);
             }
+          } else {
+            loadedList = [initialSamplePartyBill];
           }
-        }
-
-        if (loadedList.length === 0) {
-          loadedList = [initialSamplePartyBill];
         }
 
         setBills(loadedList);
@@ -149,8 +148,20 @@ export default function Home() {
     if (confirm('คุณต้องการลบบิลงานปาร์ตี้นี้ใช่หรือไม่?')) {
       const remaining = bills.filter((b) => b.id !== billId);
       setBills(remaining);
+      removePartyBillFromStorage(billId);
       if (remaining.length > 0) {
         setActiveBillId(remaining[0].id);
+        savePartyBillToStorage(remaining[0]);
+      } else {
+        const freshBill: PartyBill = {
+          ...initialSamplePartyBill,
+          id: `party-${Date.now()}`,
+          title: 'บิลใหม่',
+          date: new Date().toISOString().split('T')[0],
+        };
+        setBills([freshBill]);
+        setActiveBillId(freshBill.id);
+        savePartyBillToStorage(freshBill);
       }
       if (isSupabaseConfigured) {
         await deletePartyBillFromSupabase(billId);

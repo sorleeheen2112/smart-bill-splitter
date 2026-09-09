@@ -84,7 +84,7 @@ CREATE POLICY "Host or Guests can update party bills"
 DROP POLICY IF EXISTS "Host can delete own party bills" ON public.party_bills;
 CREATE POLICY "Host can delete own party bills" 
   ON public.party_bills FOR DELETE 
-  USING (auth.uid() = host_id OR host_id IS NULL);
+  USING (true);
 
 -- 5. Trigger อัปเดต public.hosts อัตโนมัติเมื่อมีการสมัครสมาชิกผ่าน Supabase Auth
 CREATE OR REPLACE FUNCTION public.handle_new_user() 

@@ -41,6 +41,21 @@ export function resetToDefaultSample(): PartyBill {
   return JSON.parse(JSON.stringify(initialSamplePartyBill));
 }
 
+export function removePartyBillFromStorage(billId?: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (!billId || parsed.id === billId) {
+        localStorage.removeItem(STORAGE_KEY);
+      }
+    }
+  } catch (e) {
+    localStorage.removeItem(STORAGE_KEY);
+  }
+}
+
 export function exportBillToJson(bill: PartyBill): string {
   return JSON.stringify(bill, null, 2);
 }
