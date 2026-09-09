@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { UserCheck, Search, Share2, Check, CreditCard } from 'lucide-react';
+import { UserCheck, Search, Share2, Check, CreditCard, CheckCircle2 } from 'lucide-react';
 import { PartyBill, CalculationResult } from '@/lib/types';
 import { GuestBillCard } from './GuestBillCard';
 import { PromptPayQRCode } from './PromptPayQRCode';
@@ -130,6 +130,7 @@ export const GuestViewContainer: React.FC<GuestViewContainerProps> = ({
           {filteredMembers.map((member) => {
             const isSelected = member.id === selectedMemberId;
             const mBreakdown = calculation.membersBreakdown[member.id];
+            const isVerified = member.paymentStatus === 'VERIFIED';
 
             return (
               <button
@@ -140,21 +141,31 @@ export const GuestViewContainer: React.FC<GuestViewContainerProps> = ({
                     ? 'bg-teal-700 text-white shadow-sm ring-2 ring-teal-700 scale-[1.02]'
                     : member.isFree
                     ? 'border border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100'
+                    : isVerified
+                    ? 'border border-emerald-300 bg-emerald-50/80 text-emerald-900 hover:bg-emerald-100'
                     : 'border border-slate-200 bg-slate-50/80 text-slate-700 hover:border-slate-300 hover:bg-white'
                 }`}
               >
                 <div
                   className={`flex h-6 w-6 items-center justify-center rounded-lg text-[11px] font-bold ${
-                    isSelected ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
+                    isSelected
+                      ? 'bg-white/20 text-white'
+                      : isVerified
+                      ? 'bg-emerald-200 text-emerald-900'
+                      : 'bg-slate-200 text-slate-700'
                   }`}
                 >
-                  {member.name.charAt(0)}
+                  {isVerified ? '✓' : member.name.charAt(0)}
                 </div>
                 <span>{member.name}</span>
                 {member.isFree ? (
                   <span className="text-[10px] text-amber-700 font-bold">[F] ฟรี</span>
                 ) : (member.isPayer || member.id === bill.payerMemberId) ? (
                   <span className="text-[10px] text-emerald-700 font-bold">💳 คนสำรองจ่าย</span>
+                ) : isVerified ? (
+                  <span className="text-[10px] text-emerald-700 font-bold bg-emerald-100/80 px-1.5 py-0.5 rounded">
+                    ชำระแล้ว
+                  </span>
                 ) : (
                   <span className="font-mono text-[11px] opacity-90 font-bold">
                     {formatTHB(mBreakdown?.totalPayable || 0)}
@@ -199,7 +210,7 @@ export const GuestViewContainer: React.FC<GuestViewContainerProps> = ({
             </div>
           </div>
 
-          {/* Right Column: PromptPay QR Code & Slip Uploader OR Payer Banner */}
+          {/* Right Column: PromptPay QR Code & Slip Uploader OR Verified / Payer Banner */}
           <div className="space-y-4 lg:col-span-5">
             {(selectedMember.isPayer || selectedMember.id === bill.payerMemberId) ? (
               <div className="rounded-2xl border border-emerald-200 bg-white p-6 shadow-xs space-y-4">
@@ -232,6 +243,48 @@ export const GuestViewContainer: React.FC<GuestViewContainerProps> = ({
                 </div>
                 <p className="text-[11px] text-slate-500">
                   เพื่อนๆ กำลังสแกนจ่ายเข้าพร้อมเพย์เบอร์ {bill.promptPayNumber} ({bill.promptPayName || selectedMember.name}) ของคุณ
+                </p>
+              </div>
+            ) : selectedMember.paymentStatus === 'VERIFIED' ? (
+              <div className="rounded-2xl border border-emerald-200 bg-white p-6 shadow-xs space-y-4 text-center">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-emerald-100 text-emerald-600 border border-emerald-200 shadow-sm animate-in zoom-in-95">
+                  <CheckCircle2 className="h-9 w-9" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900">
+                    ชำระเงินเรียบร้อยแล้ว! 🎉
+                  </h3>
+                  <p className="text-xs text-emerald-700 font-semibold mt-0.5">
+                    สถานะ: ตรวจสอบและยืนยันสลิปสำเร็จ
+                  </p>
+                </div>
+
+                <div className="rounded-xl bg-emerald-50/70 p-4 border border-emerald-100 text-xs text-slate-700 space-y-2 text-left">
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500">ยอดที่ชำระ:</span>
+                    <span className="font-mono text-base font-bold text-emerald-800">{formatTHB(breakdown.totalPayable)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-[11px] border-t border-emerald-200/60 pt-2 text-slate-500">
+                    <span>ผู้รับเงิน:</span>
+                    <span className="font-semibold text-slate-800">{bill.promptPayName || bill.promptPayNumber || 'เจ้าของบิล'}</span>
+                  </div>
+                </div>
+
+                {selectedMember.slipUrl && (
+                  <div className="pt-1">
+                    <a
+                      href={selectedMember.slipUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center space-x-1.5 rounded-xl border border-emerald-200 bg-emerald-50/50 px-3.5 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 transition shadow-2xs"
+                    >
+                      <span>🧾 ดูหลักฐานสลิปที่แนบไว้</span>
+                    </a>
+                  </div>
+                )}
+
+                <p className="text-[11px] text-slate-500 font-medium">
+                  ขอบคุณสำหรับมื้อนี้นะครับ/ค่ะ 🙏
                 </p>
               </div>
             ) : (
