@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import {
   Sparkles,
+  ReceiptText,
   Share2,
   Shield,
   UserCheck,
@@ -42,8 +43,9 @@ export const Navbar: React.FC<NavbarProps> = ({
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6">
           {/* Logo & Title */}
           <div className="flex items-center space-x-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-teal-600 to-emerald-500 shadow-md shadow-emerald-600/20">
-              <Sparkles className="h-5 w-5 text-white" />
+            <div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-teal-700 via-emerald-600 to-teal-500 shadow-md shadow-emerald-700/20">
+              <ReceiptText className="h-5 w-5 text-white" />
+              <Sparkles className="absolute -top-1 -right-1 h-3.5 w-3.5 text-amber-300 drop-shadow-xs animate-pulse" />
             </div>
             <div>
               <div className="flex items-center space-x-2">
