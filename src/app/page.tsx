@@ -84,12 +84,29 @@ export default function Home() {
         // If host has no bills yet in database, create a fresh first bill
         if (loadedList.length === 0) {
           const freshBill: PartyBill = {
-            ...initialSamplePartyBill,
             id: `party-${Date.now()}`,
             title: `ปาร์ตี้ของ ${hostUser.firstName}`,
             promptPayNumber: hostUser.defaultPromptPay || '',
             promptPayName: `${hostUser.firstName} ${hostUser.lastName || ''}`.trim(),
             date: new Date().toISOString().split('T')[0],
+            vatMode: 'INCLUDE',
+            vatRate: 0.07,
+            serviceChargeRate: 0,
+            sponsorBudget: 0,
+            hostPin: '1234',
+            isPublished: false,
+            gangs: [],
+            members: [
+              {
+                id: `m-host-${Date.now()}`,
+                name: hostUser.firstName || 'Host (ฉัน)',
+                gangIds: [],
+                isFree: false,
+                paymentStatus: 'PENDING',
+                note: 'ผู้จัดการบิล',
+              },
+            ],
+            items: [],
           };
           loadedList = [freshBill];
           if (isSupabaseConfigured) {
@@ -157,10 +174,29 @@ export default function Home() {
         savePartyBillToStorage(remaining[0]);
       } else {
         const freshBill: PartyBill = {
-          ...initialSamplePartyBill,
           id: `party-${Date.now()}`,
           title: 'บิลใหม่',
           date: new Date().toISOString().split('T')[0],
+          vatMode: 'INCLUDE',
+          vatRate: 0.07,
+          serviceChargeRate: 0,
+          sponsorBudget: 0,
+          promptPayNumber: hostUser?.defaultPromptPay || '',
+          promptPayName: hostUser ? `${hostUser.firstName} ${hostUser.lastName || ''}`.trim() : '',
+          hostPin: '1234',
+          isPublished: false,
+          gangs: [],
+          members: [
+            {
+              id: `m-host-${Date.now()}`,
+              name: hostUser ? hostUser.firstName : 'Host (ฉัน)',
+              gangIds: [],
+              isFree: false,
+              paymentStatus: 'PENDING',
+              note: 'ผู้จัดการบิล',
+            },
+          ],
+          items: [],
         };
         setBills([freshBill]);
         setActiveBillId(freshBill.id);

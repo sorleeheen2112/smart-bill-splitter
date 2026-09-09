@@ -11,10 +11,12 @@ import {
   LogIn,
   LogOut,
   Cloud,
+  HelpCircle,
 } from 'lucide-react';
 import { PartyBill } from '@/lib/types';
 import { useAuth } from '@/context/AuthContext';
 import { AuthModal } from '@/components/Auth/AuthModal';
+import { HostInfographicModal } from '@/components/HostDashboard/HostInfographicModal';
 
 interface NavbarProps {
   bill: PartyBill;
@@ -36,6 +38,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const { hostUser, signOut, isSupabaseActive } = useAuth();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isHostGuideOpen, setIsHostGuideOpen] = useState(false);
 
   return (
     <>
@@ -99,6 +102,15 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Host Account / Action Buttons */}
           <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setIsHostGuideOpen(true)}
+              className="flex items-center space-x-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition shadow-2xs"
+              title="คู่มือการใช้งานสำหรับ Host"
+            >
+              <HelpCircle className="h-3.5 w-3.5 text-teal-600" />
+              <span className="hidden sm:inline">คู่มือ Host</span>
+            </button>
+
             {hostUser && showHistoryButton && onOpenHistory && (
               <button
                 onClick={onOpenHistory}
@@ -153,6 +165,11 @@ export const Navbar: React.FC<NavbarProps> = ({
       <AuthModal
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
+      />
+
+      <HostInfographicModal
+        isOpen={isHostGuideOpen}
+        onClose={() => setIsHostGuideOpen(false)}
       />
     </>
   );

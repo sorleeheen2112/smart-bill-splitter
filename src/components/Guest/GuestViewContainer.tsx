@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useState } from 'react';
-import { UserCheck, Search, Share2, Check, CreditCard, CheckCircle2, X } from 'lucide-react';
+import { UserCheck, Search, Share2, Check, CreditCard, CheckCircle2, X, HelpCircle } from 'lucide-react';
 import { PartyBill, CalculationResult } from '@/lib/types';
 import { GuestBillCard } from './GuestBillCard';
 import { PromptPayQRCode } from './PromptPayQRCode';
 import { SlipUploadSection } from './SlipUploadSection';
+import { GuestInfographicModal } from './GuestInfographicModal';
 import { formatTHB } from '@/lib/calculator';
 
 interface GuestViewContainerProps {
@@ -29,6 +30,7 @@ export const GuestViewContainer: React.FC<GuestViewContainerProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [copiedLink, setCopiedLink] = useState(false);
   const [isSlipModalOpen, setIsSlipModalOpen] = useState(false);
+  const [isInfographicOpen, setIsInfographicOpen] = useState(false);
 
   const selectedMember = bill.members.find((m) => m.id === selectedMemberId) || bill.members[0];
 
@@ -114,20 +116,32 @@ export const GuestViewContainer: React.FC<GuestViewContainerProps> = ({
             </p>
           </div>
 
-          <div className="relative">
-            <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="ค้นหาชื่อ..."
-              className="w-full sm:w-48 rounded-xl border border-slate-300 bg-white pl-9 pr-3 py-1.5 text-xs text-slate-900 placeholder-slate-400 focus:border-teal-600 focus:outline-none shadow-2xs"
-            />
+          <div className="flex items-center space-x-2">
+            <button
+              type="button"
+              onClick={() => setIsInfographicOpen(true)}
+              className="flex items-center space-x-1.5 rounded-xl border border-teal-200 bg-teal-50 px-3 py-1.5 text-xs font-bold text-teal-800 hover:bg-teal-100 transition shadow-2xs cursor-pointer shrink-0"
+              title="ดูวิธีใช้งาน 3 ขั้นตอน"
+            >
+              <HelpCircle className="h-3.5 w-3.5 text-teal-600" />
+              <span>💡 วิธีใช้งาน</span>
+            </button>
+
+            <div className="relative">
+              <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="ค้นหาชื่อ..."
+                className="w-full sm:w-44 rounded-xl border border-slate-300 bg-white pl-9 pr-3 py-1.5 text-xs text-slate-900 placeholder-slate-400 focus:border-teal-600 focus:outline-none shadow-2xs"
+              />
+            </div>
           </div>
         </div>
 
         {/* Member Avatar Chips List */}
-        <div className="flex flex-wrap gap-2 max-h-44 overflow-y-auto pr-1">
+        <div className="flex flex-wrap gap-2 max-h-[205px] overflow-y-auto p-1">
           {filteredMembers.map((member) => {
             const isSelected = member.id === selectedMemberId;
             const mBreakdown = calculation.membersBreakdown[member.id];
@@ -137,38 +151,38 @@ export const GuestViewContainer: React.FC<GuestViewContainerProps> = ({
               <button
                 key={member.id}
                 onClick={() => setSelectedMemberId(member.id)}
-                className={`flex items-center space-x-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition-all ${
+                className={`flex items-center space-x-2 rounded-xl border px-3.5 py-2 text-xs font-semibold transition-colors ${
                   isSelected
-                    ? 'bg-teal-700 text-white shadow-sm ring-2 ring-teal-700 scale-[1.02]'
+                    ? 'border-teal-700 bg-teal-700 text-white shadow-xs'
                     : member.isFree
-                    ? 'border border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100'
+                    ? 'border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100'
                     : isVerified
-                    ? 'border border-emerald-300 bg-emerald-50/80 text-emerald-900 hover:bg-emerald-100'
-                    : 'border border-slate-200 bg-slate-50/80 text-slate-700 hover:border-slate-300 hover:bg-white'
+                    ? 'border-emerald-300 bg-emerald-50/80 text-emerald-900 hover:bg-emerald-100'
+                    : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
                 }`}
               >
                 <div
                   className={`flex h-6 w-6 items-center justify-center rounded-lg text-[11px] font-bold ${
                     isSelected
-                      ? 'bg-white/20 text-white'
+                      ? 'bg-teal-800/80 text-white'
                       : isVerified
                       ? 'bg-emerald-200 text-emerald-900'
-                      : 'bg-slate-200 text-slate-700'
+                      : 'bg-slate-100 text-slate-700'
                   }`}
                 >
                   {isVerified ? '✓' : member.name.charAt(0)}
                 </div>
                 <span>{member.name}</span>
                 {member.isFree ? (
-                  <span className="text-[10px] text-amber-700 font-bold">[F] ฟรี</span>
+                  <span className={`text-[10px] font-bold ${isSelected ? 'text-amber-200' : 'text-amber-700'}`}>[F] ฟรี</span>
                 ) : (member.isPayer || member.id === bill.payerMemberId) ? (
-                  <span className="text-[10px] text-emerald-700 font-bold">💳 คนสำรองจ่าย</span>
+                  <span className={`text-[10px] font-bold ${isSelected ? 'text-teal-100' : 'text-emerald-700'}`}>💳 คนสำรองจ่าย</span>
                 ) : isVerified ? (
-                  <span className="text-[10px] text-emerald-700 font-bold bg-emerald-100/80 px-1.5 py-0.5 rounded">
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${isSelected ? 'bg-teal-800/60 text-white' : 'bg-emerald-100/80 text-emerald-700'}`}>
                     ชำระแล้ว
                   </span>
                 ) : (
-                  <span className="font-mono text-[11px] opacity-90 font-bold">
+                  <span className={`font-mono text-[11px] font-bold ${isSelected ? 'text-teal-100' : 'opacity-90'}`}>
                     {formatTHB(mBreakdown?.totalPayable || 0)}
                   </span>
                 )}
@@ -352,6 +366,12 @@ export const GuestViewContainer: React.FC<GuestViewContainerProps> = ({
           </div>
         </div>
       )}
+
+      {/* Guest Infographic Guide Modal */}
+      <GuestInfographicModal
+        isOpen={isInfographicOpen}
+        onClose={() => setIsInfographicOpen(false)}
+      />
     </div>
   );
 };

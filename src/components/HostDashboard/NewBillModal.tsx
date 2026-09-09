@@ -30,12 +30,6 @@ export const NewBillModal: React.FC<NewBillModalProps> = ({
     e.preventDefault();
     if (!title.trim()) return;
 
-    const defaultGangs: Gang[] = [
-      { id: `gang-a-${Date.now()}`, name: 'แก๊ง A (แอลกอฮอล์)', colorTag: 'amber' },
-      { id: `gang-b-${Date.now()}`, name: 'แก๊ง B (เบียร์สด)', colorTag: 'emerald' },
-      { id: `gang-g-${Date.now()}`, name: 'แก๊ง G (ของหวาน/ไอติม)', colorTag: 'rose' },
-    ];
-
     const newBill: PartyBill = {
       id: `party-${Date.now()}`,
       title: title.trim(),
@@ -48,7 +42,7 @@ export const NewBillModal: React.FC<NewBillModalProps> = ({
       promptPayName: promptPayName.trim(),
       hostPin: '1234',
       isPublished: false,
-      gangs: defaultGangs,
+      gangs: [],
       members: [
         {
           id: `m-host-${Date.now()}`,

@@ -61,7 +61,7 @@ export const SheetSummaryTable: React.FC<SheetSummaryTableProps> = ({
           </div>
           <div>
             <h3 className="text-base font-bold text-slate-900">
-              ตารางสรุปยอดแยกแก๊ง (Google Sheets View)
+              ตารางสรุปยอดแยกแก๊ง
             </h3>
             <p className="text-xs text-slate-500">
               แจกแจงค่าอาหารกองกลางและแต่ละแก๊งรายบุคคล พร้อมระบบเช็กสลิป
