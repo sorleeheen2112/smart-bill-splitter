@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { UserCheck, Search, Share2, Check, CreditCard, CheckCircle2 } from 'lucide-react';
+import { UserCheck, Search, Share2, Check, CreditCard, CheckCircle2, X } from 'lucide-react';
 import { PartyBill, CalculationResult } from '@/lib/types';
 import { GuestBillCard } from './GuestBillCard';
 import { PromptPayQRCode } from './PromptPayQRCode';
@@ -28,6 +28,7 @@ export const GuestViewContainer: React.FC<GuestViewContainerProps> = ({
   );
   const [searchTerm, setSearchTerm] = useState('');
   const [copiedLink, setCopiedLink] = useState(false);
+  const [isSlipModalOpen, setIsSlipModalOpen] = useState(false);
 
   const selectedMember = bill.members.find((m) => m.id === selectedMemberId) || bill.members[0];
 
@@ -272,14 +273,13 @@ export const GuestViewContainer: React.FC<GuestViewContainerProps> = ({
 
                 {selectedMember.slipUrl && (
                   <div className="pt-1">
-                    <a
-                      href={selectedMember.slipUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center space-x-1.5 rounded-xl border border-emerald-200 bg-emerald-50/50 px-3.5 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 transition shadow-2xs"
+                    <button
+                      type="button"
+                      onClick={() => setIsSlipModalOpen(true)}
+                      className="inline-flex items-center space-x-1.5 rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2 text-xs font-bold text-emerald-800 hover:bg-emerald-100 transition shadow-2xs cursor-pointer"
                     >
-                      <span>🧾 ดูหลักฐานสลิปที่แนบไว้</span>
-                    </a>
+                      <span>🧾 ดูรูปสลิปหลักฐาน</span>
+                    </button>
                   </div>
                 )}
 
@@ -306,6 +306,49 @@ export const GuestViewContainer: React.FC<GuestViewContainerProps> = ({
                 )}
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Slip Preview Modal Lightbox */}
+      {isSlipModalOpen && selectedMember && selectedMember.slipUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 p-4 backdrop-blur-xs animate-in fade-in">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-2xl overflow-hidden animate-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">
+                  สลิปโอนเงิน: {selectedMember.name}
+                </h3>
+                {breakdown && (
+                  <p className="text-xs text-emerald-700 font-semibold">
+                    ยอดเงิน: {formatTHB(breakdown.totalPayable)}
+                  </p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsSlipModalOpen(false)}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-800 transition"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-4 flex flex-col items-center justify-center bg-slate-50 max-h-[70vh] overflow-y-auto">
+              <img
+                src={selectedMember.slipUrl}
+                alt={`สลิปของ ${selectedMember.name}`}
+                className="max-h-[60vh] w-auto rounded-xl object-contain shadow-sm border border-slate-200"
+              />
+            </div>
+            <div className="border-t border-slate-100 p-3 bg-white text-center">
+              <button
+                type="button"
+                onClick={() => setIsSlipModalOpen(false)}
+                className="w-full rounded-xl bg-slate-100 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-200 transition"
+              >
+                ปิดหน้าต่าง
+              </button>
+            </div>
           </div>
         </div>
       )}
