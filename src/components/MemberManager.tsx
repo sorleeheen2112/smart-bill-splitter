@@ -518,8 +518,8 @@ export const MemberManager: React.FC<MemberManagerProps> = ({
 
               {/* Quick Gang Toggle Chips */}
               <div className="mt-2.5 border-t border-slate-200/80 pt-2">
-                <div className="flex flex-wrap items-center gap-1">
-                  <span className="text-[10px] text-slate-400 mr-1 font-medium">แก๊ง:</span>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-[10px] text-slate-400 mr-0.5 font-medium">แก๊ง:</span>
                   {bill.gangs.map((gang) => {
                     const isInGang = (member.gangIds || []).includes(gang.id);
                     if (readOnly && !isInGang) return null;
@@ -529,18 +529,40 @@ export const MemberManager: React.FC<MemberManagerProps> = ({
                         type="button"
                         disabled={readOnly}
                         onClick={() => !readOnly && toggleQuickGangForMember(member.id, gang.id)}
-                        className={`rounded px-1.5 py-0.5 text-[10px] font-semibold transition ${
+                        className={`inline-flex items-center space-x-1 rounded-md px-2 py-0.5 text-[11px] font-semibold transition ${
                           isInGang
-                            ? 'bg-teal-100 text-teal-900 border border-teal-300'
-                            : 'bg-white text-slate-500 border border-slate-200 hover:border-slate-300 hover:text-slate-800'
+                            ? 'bg-teal-100 text-teal-900 border border-teal-300 shadow-2xs'
+                            : 'bg-white text-slate-500 border border-slate-200 hover:border-slate-300 hover:text-slate-800 hover:bg-slate-50'
                         } ${readOnly ? 'cursor-default' : ''}`}
                         title={readOnly ? gang.name : `คลิกเพื่อ ${isInGang ? 'นำออกจาก' : 'เพิ่มเข้า'} ${gang.name}`}
                       >
-                        {gang.name.split(' ')[0]}
+                        <span
+                          className={`h-1.5 w-1.5 rounded-full shrink-0 ${
+                            gang.colorTag === 'emerald'
+                              ? 'bg-emerald-500'
+                              : gang.colorTag === 'cyan'
+                              ? 'bg-cyan-500'
+                              : gang.colorTag === 'rose'
+                              ? 'bg-rose-500'
+                              : gang.colorTag === 'violet'
+                              ? 'bg-violet-500'
+                              : gang.colorTag === 'purple'
+                              ? 'bg-purple-500'
+                              : gang.colorTag === 'teal'
+                              ? 'bg-teal-500'
+                              : gang.colorTag === 'orange'
+                              ? 'bg-orange-500'
+                              : 'bg-amber-500'
+                          }`}
+                        />
+                        <span>{gang.name}</span>
                       </button>
                     );
                   })}
-                  {readOnly && (member.gangIds || []).length === 0 && (
+                  {bill.gangs.length === 0 && (
+                    <span className="text-[10px] text-slate-400 italic">ยังไม่มีแก๊ง (กองกลางเท่านั้น)</span>
+                  )}
+                  {readOnly && (member.gangIds || []).length === 0 && bill.gangs.length > 0 && (
                     <span className="text-[10px] text-slate-400 italic">กองกลางเท่านั้น</span>
                   )}
                 </div>
