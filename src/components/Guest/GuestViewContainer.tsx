@@ -1,0 +1,261 @@
+'use client';
+
+import React, { useState } from 'react';
+import { UserCheck, Search, Share2, Check, CreditCard } from 'lucide-react';
+import { PartyBill, CalculationResult } from '@/lib/types';
+import { GuestBillCard } from './GuestBillCard';
+import { PromptPayQRCode } from './PromptPayQRCode';
+import { SlipUploadSection } from './SlipUploadSection';
+import { formatTHB } from '@/lib/calculator';
+
+interface GuestViewContainerProps {
+  bill: PartyBill;
+  calculation: CalculationResult;
+  onUpdateBill: (updated: Partial<PartyBill>) => void;
+  initialMemberId?: string;
+  onSwitchToDetails?: () => void;
+}
+
+export const GuestViewContainer: React.FC<GuestViewContainerProps> = ({
+  bill,
+  calculation,
+  onUpdateBill,
+  initialMemberId,
+  onSwitchToDetails,
+}) => {
+  const [selectedMemberId, setSelectedMemberId] = useState<string>(
+    initialMemberId || (bill.members[0]?.id || '')
+  );
+  const [searchTerm, setSearchTerm] = useState('');
+  const [copiedLink, setCopiedLink] = useState(false);
+
+  const selectedMember = bill.members.find((m) => m.id === selectedMemberId) || bill.members[0];
+
+  const handleUploadSlip = (memberId: string, slipUrl: string) => {
+    const updated = bill.members.map((m) =>
+      m.id === memberId
+        ? {
+            ...m,
+            slipUrl,
+            slipUploadedAt: new Date().toISOString(),
+            paymentStatus: 'SLIP_UPLOADED' as const,
+          }
+        : m
+    );
+    onUpdateBill({ members: updated });
+  };
+
+  const handleCopyPersonalLink = () => {
+    if (typeof window !== 'undefined') {
+      const url = `${window.location.origin}/bill/${bill.id}`;
+      navigator.clipboard.writeText(url);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
+    }
+  };
+
+  const filteredMembers = bill.members.filter((m) =>
+    m.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const breakdown = selectedMember ? calculation.membersBreakdown[selectedMember.id] : null;
+
+  // If bill is not published yet, show friendly waiting screen
+  if (!bill.isPublished) {
+    return (
+      <div className="space-y-6">
+        <div className="rounded-2xl border border-amber-200 bg-white p-8 text-center shadow-xs">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 border border-amber-200 mb-4 animate-pulse">
+            <span className="text-3xl">⏳</span>
+          </div>
+          <h2 className="text-lg font-bold text-slate-900 mb-1">
+            เจ้าของบิล (Host) กำลังจัดแบ่งรายการอาหาร
+          </h2>
+          <p className="text-xs text-slate-500 max-w-md mx-auto mb-6">
+            บิลนี้ยังอยู่ในระหว่างจัดเตรียมรายการและคำนวณยอด เมื่อ Host กดจัดการเสร็จสิ้นและสร้าง QR Code หน้านี้จะเปิดให้เลือกชื่อและสแกนจ่ายทันที
+          </p>
+
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            {onSwitchToDetails && (
+              <button
+                type="button"
+                onClick={onSwitchToDetails}
+                className="w-full sm:w-auto flex items-center justify-center space-x-2 rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 shadow-2xs transition"
+              >
+                <span>📋 ดูรายละเอียดบิล (รายการอาหาร/สมาชิก)</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="w-full sm:w-auto flex items-center justify-center space-x-2 rounded-xl bg-teal-700 px-5 py-2.5 text-xs font-bold text-white hover:bg-teal-800 shadow-xs transition"
+            >
+              <span>🔄 รีเฟรชตรวจสถานะ</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Step 1: Member Selection Area */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+          <div>
+            <h3 className="text-sm font-bold text-slate-900 flex items-center space-x-2">
+              <UserCheck className="h-4 w-4 text-emerald-600" />
+              <span>เลือกชื่อของคุณ (Select Your Name)</span>
+            </h3>
+            <p className="text-xs text-slate-500">
+              แตะที่ชื่อเพื่อดูยอดค่าอาหารของคุณและสแกนจ่าย QR
+            </p>
+          </div>
+
+          <div className="relative">
+            <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="ค้นหาชื่อ..."
+              className="w-full sm:w-48 rounded-xl border border-slate-300 bg-white pl-9 pr-3 py-1.5 text-xs text-slate-900 placeholder-slate-400 focus:border-teal-600 focus:outline-none shadow-2xs"
+            />
+          </div>
+        </div>
+
+        {/* Member Avatar Chips List */}
+        <div className="flex flex-wrap gap-2 max-h-44 overflow-y-auto pr-1">
+          {filteredMembers.map((member) => {
+            const isSelected = member.id === selectedMemberId;
+            const mBreakdown = calculation.membersBreakdown[member.id];
+
+            return (
+              <button
+                key={member.id}
+                onClick={() => setSelectedMemberId(member.id)}
+                className={`flex items-center space-x-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition-all ${
+                  isSelected
+                    ? 'bg-teal-700 text-white shadow-sm ring-2 ring-teal-700 scale-[1.02]'
+                    : member.isFree
+                    ? 'border border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100'
+                    : 'border border-slate-200 bg-slate-50/80 text-slate-700 hover:border-slate-300 hover:bg-white'
+                }`}
+              >
+                <div
+                  className={`flex h-6 w-6 items-center justify-center rounded-lg text-[11px] font-bold ${
+                    isSelected ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
+                  }`}
+                >
+                  {member.name.charAt(0)}
+                </div>
+                <span>{member.name}</span>
+                {member.isFree ? (
+                  <span className="text-[10px] text-amber-700 font-bold">[F] ฟรี</span>
+                ) : (member.isPayer || member.id === bill.payerMemberId) ? (
+                  <span className="text-[10px] text-emerald-700 font-bold">💳 คนสำรองจ่าย</span>
+                ) : (
+                  <span className="font-mono text-[11px] opacity-90 font-bold">
+                    {formatTHB(mBreakdown?.totalPayable || 0)}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Step 2: Active Member Breakdown & Payment Flow */}
+      {selectedMember && breakdown && (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+          {/* Left Column: Itemized Breakdown Card */}
+          <div className="space-y-4 lg:col-span-7">
+            <GuestBillCard
+              bill={bill}
+              member={selectedMember}
+              calculation={calculation}
+            />
+
+            {/* Copy Personal Link & Switch to Full Details */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white p-3 text-xs shadow-2xs">
+              {onSwitchToDetails && (
+                <button
+                  type="button"
+                  onClick={onSwitchToDetails}
+                  className="flex items-center justify-center space-x-1.5 rounded-lg bg-teal-50 px-3 py-1.5 text-xs font-semibold text-teal-800 hover:bg-teal-100 border border-teal-200 transition"
+                >
+                  <span>📋 ดูรายละเอียดบิลทั้งหมด (โหมดอ่านอย่างเดียว)</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={handleCopyPersonalLink}
+                className="flex items-center justify-center space-x-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-200 border border-slate-200 transition"
+              >
+                {copiedLink ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Share2 className="h-3.5 w-3.5" />}
+                <span>{copiedLink ? 'คัดลอกลิงก์แล้ว' : 'คัดลอกลิงก์บิลนี้'}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Right Column: PromptPay QR Code & Slip Uploader OR Payer Banner */}
+          <div className="space-y-4 lg:col-span-5">
+            {(selectedMember.isPayer || selectedMember.id === bill.payerMemberId) ? (
+              <div className="rounded-2xl border border-emerald-200 bg-white p-6 shadow-xs space-y-4">
+                <div className="flex items-center space-x-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
+                    <CreditCard className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900">
+                      คุณคือผู้สำรองจ่ายเงินหน้าร้าน
+                    </h3>
+                    <p className="text-xs text-emerald-700 font-semibold">
+                      สถานะ: ชำระแล้วอัตโนมัติ (ไม่ต้องสแกนโอน)
+                    </p>
+                  </div>
+                </div>
+                <div className="rounded-xl bg-emerald-50/70 p-4 border border-emerald-100 text-xs text-emerald-950 space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">ยอดบิลทั้งหมดที่คุณจ่ายให้ร้าน:</span>
+                    <span className="font-mono font-bold">{formatTHB(calculation.effectiveGrandTotal)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">ค่าอาหารในส่วนของคุณ:</span>
+                    <span className="font-mono font-bold text-slate-900">{formatTHB(breakdown.totalPayable)}</span>
+                  </div>
+                  <div className="border-t border-emerald-200/80 pt-2 flex justify-between font-bold text-xs text-emerald-900">
+                    <span>ยอดรวมที่เพื่อนๆ ต้องโอนคืนคุณ:</span>
+                    <span className="font-mono text-emerald-700">{formatTHB(Math.max(0, calculation.effectiveGrandTotal - breakdown.totalPayable))}</span>
+                  </div>
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  เพื่อนๆ กำลังสแกนจ่ายเข้าพร้อมเพย์เบอร์ {bill.promptPayNumber} ({bill.promptPayName || selectedMember.name}) ของคุณ
+                </p>
+              </div>
+            ) : (
+              <>
+                {!selectedMember.isFree && (
+                  <PromptPayQRCode
+                    promptPayNumber={bill.promptPayNumber}
+                    promptPayName={bill.promptPayName}
+                    amount={breakdown.totalPayable}
+                    memberName={selectedMember.name}
+                  />
+                )}
+
+                {!selectedMember.isFree && (
+                  <SlipUploadSection
+                    member={selectedMember}
+                    onUploadSlip={handleUploadSlip}
+                  />
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
