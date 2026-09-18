@@ -19,8 +19,13 @@ export const LineShareModal: React.FC<LineShareModalProps> = ({
   calculation,
 }) => {
   const [copied, setCopied] = useState(false);
+  const [copiedUrl, setCopiedUrl] = useState(false);
 
   if (!isOpen) return null;
+
+  const billUrl = typeof window !== 'undefined' && bill.id
+    ? `${window.location.origin}/bill/${bill.id}`
+    : '';
 
   const lines: string[] = [];
   lines.push(`🎉 สรุปยอดบิลปาร์ตี้: ${bill.title}`);
@@ -56,6 +61,11 @@ export const LineShareModal: React.FC<LineShareModalProps> = ({
   lines.push(`• เลขพร้อมเพย์: ${bill.promptPayNumber || '-'}`);
   if (bill.promptPayName) lines.push(`• ชื่อบัญชี: ${bill.promptPayName}`);
   lines.push(`• โอนแล้วแนบสลิปส่งในกลุ่มได้เลยครับ/ค่ะ 🙏`);
+  if (billUrl) {
+    lines.push(`─────────────────`);
+    lines.push(`🔗 ลิงก์ดูยอด & สแกน QR รายบุคคล:`);
+    lines.push(billUrl);
+  }
 
   const shareText = lines.join('\n');
 
@@ -65,6 +75,13 @@ export const LineShareModal: React.FC<LineShareModalProps> = ({
     setTimeout(() => setCopied(false), 2500);
   };
 
+  const handleCopyUrlOnly = () => {
+    if (!billUrl) return;
+    navigator.clipboard.writeText(billUrl);
+    setCopiedUrl(true);
+    setTimeout(() => setCopiedUrl(false), 2500);
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs animate-in fade-in">
       <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white shadow-2xl overflow-hidden">
@@ -72,7 +89,7 @@ export const LineShareModal: React.FC<LineShareModalProps> = ({
           <div className="flex items-center space-x-2 text-[#05963f]">
             <MessageSquare className="h-5 w-5" />
             <h3 className="text-base font-bold text-slate-900">
-              คัดลอกข้อความส่งเข้ากลุ่ม LINE
+              คัดลอกข้อความ & ลิงก์ส่งเข้ากลุ่ม LINE
             </h3>
           </div>
           <button
@@ -91,13 +108,28 @@ export const LineShareModal: React.FC<LineShareModalProps> = ({
             className="w-full rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs font-mono text-slate-800 focus:outline-none leading-relaxed shadow-2xs"
           />
 
-          <div className="mt-4 flex items-center justify-between">
-            <span className="text-xs text-slate-500">
-              ข้อความถูกจัดรูปแบบพร้อมส่งใน LINE ทันที
-            </span>
+          <div className="mt-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={handleCopyUrlOnly}
+              className="flex items-center justify-center space-x-1.5 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition shadow-2xs"
+            >
+              {copiedUrl ? (
+                <>
+                  <Check className="h-4 w-4 text-emerald-600" />
+                  <span className="text-emerald-700">คัดลอกลิงก์แล้ว!</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="h-4 w-4 text-slate-500" />
+                  <span>คัดลอกเฉพาะลิงก์เว็บ</span>
+                </>
+              )}
+            </button>
+
             <button
               onClick={handleCopy}
-              className={`flex items-center space-x-1.5 rounded-xl px-5 py-2.5 text-xs font-bold shadow-xs transition ${
+              className={`flex items-center justify-center space-x-1.5 rounded-xl px-5 py-2.5 text-xs font-bold shadow-xs transition ${
                 copied
                   ? 'bg-emerald-600 text-white'
                   : 'bg-[#06C755] text-white hover:bg-[#05a346]'
@@ -106,12 +138,12 @@ export const LineShareModal: React.FC<LineShareModalProps> = ({
               {copied ? (
                 <>
                   <Check className="h-4 w-4" />
-                  <span>คัดลอกสำเร็จแล้ว!</span>
+                  <span>คัดลอกข้อความแล้ว!</span>
                 </>
               ) : (
                 <>
                   <Copy className="h-4 w-4" />
-                  <span>คัดลอกข้อความ LINE</span>
+                  <span>คัดลอกข้อความ LINE ทั้งหมด</span>
                 </>
               )}
             </button>

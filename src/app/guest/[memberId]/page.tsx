@@ -101,6 +101,7 @@ export default function GuestDirectPage() {
           <div className="space-y-4 md:col-span-5">
             {!member.isFree && (
               <PromptPayQRCode
+                key={`qr-${member.id}`}
                 promptPayNumber={bill.promptPayNumber}
                 promptPayName={bill.promptPayName}
                 amount={breakdown?.totalPayable || 0}
@@ -110,6 +111,7 @@ export default function GuestDirectPage() {
 
             {!member.isFree && (
               <SlipUploadSection
+                key={`slip-${member.id}`}
                 member={member}
                 onUploadSlip={handleUploadSlip}
               />

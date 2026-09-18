@@ -150,7 +150,10 @@ export const GuestViewContainer: React.FC<GuestViewContainerProps> = ({
             return (
               <button
                 key={member.id}
-                onClick={() => setSelectedMemberId(member.id)}
+                onClick={() => {
+                  setSelectedMemberId(member.id);
+                  setIsSlipModalOpen(false);
+                }}
                 className={`flex items-center space-x-2 rounded-xl border px-3.5 py-2 text-xs font-semibold transition-colors ${
                   isSelected
                     ? 'border-teal-700 bg-teal-700 text-white shadow-xs'
@@ -305,6 +308,7 @@ export const GuestViewContainer: React.FC<GuestViewContainerProps> = ({
               <>
                 {!selectedMember.isFree && (
                   <PromptPayQRCode
+                    key={`qr-${selectedMember.id}`}
                     promptPayNumber={bill.promptPayNumber}
                     promptPayName={bill.promptPayName}
                     amount={breakdown.totalPayable}
@@ -314,6 +318,7 @@ export const GuestViewContainer: React.FC<GuestViewContainerProps> = ({
 
                 {!selectedMember.isFree && (
                   <SlipUploadSection
+                    key={`slip-${selectedMember.id}`}
                     member={selectedMember}
                     onUploadSlip={handleUploadSlip}
                   />

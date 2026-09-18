@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Upload, CheckCircle2, Camera, Clock } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { Member } from '@/lib/types';
@@ -17,6 +17,14 @@ export const SlipUploadSection: React.FC<SlipUploadSectionProps> = ({
   const [preview, setPreview] = useState<string | null>(member.slipUrl || null);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Synchronize preview and file input whenever the active member or member's slipUrl changes
+  useEffect(() => {
+    setPreview(member.slipUrl || null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  }, [member.id, member.slipUrl]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

@@ -85,7 +85,7 @@ export const BoardView: React.FC<BoardViewProps> = ({
   return (
     <div className="w-full">
       <DragDropContext onDragEnd={onDragEnd}>
-        <div className="flex gap-4 overflow-x-auto pb-4 pt-1 snap-x">
+        <div className="flex gap-4 overflow-x-auto pb-6 pt-1 snap-x">
           {columns.map((col) => (
             <div
               key={col.id}
@@ -93,11 +93,24 @@ export const BoardView: React.FC<BoardViewProps> = ({
             >
               {/* Column Header */}
               <div className={`rounded-t-2xl border-b p-3.5 ${col.headerBg}`}>
-                <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-bold truncate max-w-[210px]">{col.name}</h4>
-                  <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-bold text-slate-700 border border-slate-200 shadow-2xs">
-                    {col.items.length} รายการ
-                  </span>
+                <div className="flex items-center justify-between gap-2">
+                  <h4 className="text-xs font-bold truncate">{col.name}</h4>
+                  <div className="flex items-center space-x-1.5 shrink-0">
+                    {!readOnly && (
+                      <button
+                        type="button"
+                        onClick={() => onAddNewItem(col.id)}
+                        className="flex items-center space-x-1 rounded-lg bg-teal-700 hover:bg-teal-800 active:scale-95 text-white px-2.5 py-1 text-[11px] font-bold shadow-2xs transition cursor-pointer"
+                        title="เพิ่มรายการอาหารในกลุ่มนี้"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        <span>เพิ่ม</span>
+                      </button>
+                    )}
+                    <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-bold text-slate-700 border border-slate-200 shadow-2xs">
+                      {col.items.length} รายการ
+                    </span>
+                  </div>
                 </div>
                 <p className="mt-1 text-[11px] text-slate-500 line-clamp-1">{col.description}</p>
 
@@ -119,13 +132,13 @@ export const BoardView: React.FC<BoardViewProps> = ({
                   <div
                     ref={provided.innerRef}
                     {...provided.droppableProps}
-                    className={`flex-1 space-y-2.5 p-3 min-h-[220px] transition-colors ${
+                    className={`flex-1 space-y-2.5 p-3 min-h-[160px] transition-colors ${
                       snapshot.isDraggingOver ? 'bg-teal-100/50' : ''
                     }`}
                   >
                     {col.items.length === 0 ? (
-                      <div className="flex h-32 flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 text-slate-400 bg-white/50">
-                        <ArrowRightLeft className="h-6 w-6 stroke-[1.5] mb-1 text-slate-300" />
+                      <div className="flex h-24 flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 text-slate-400 bg-white/50">
+                        <ArrowRightLeft className="h-5 w-5 stroke-[1.5] mb-1 text-slate-300" />
                         <span className="text-xs font-medium">ลากอาหารมาวางที่นี่</span>
                       </div>
                     ) : (
@@ -220,23 +233,21 @@ export const BoardView: React.FC<BoardViewProps> = ({
                       })
                     )}
                     {provided.placeholder}
+
+                    {/* Bottom Add Item Button - Placed immediately under the last item in the list */}
+                    {!readOnly && (
+                      <button
+                        type="button"
+                        onClick={() => onAddNewItem(col.id)}
+                        className="flex w-full items-center justify-center space-x-1.5 rounded-xl border-2 border-dashed border-slate-300 bg-white/80 hover:bg-white hover:border-teal-600 hover:text-teal-800 active:scale-98 py-2.5 text-xs font-bold text-slate-600 transition shadow-2xs cursor-pointer mt-1"
+                      >
+                        <Plus className="h-4 w-4 text-teal-600" />
+                        <span>เพิ่มรายการในกลุ่มนี้</span>
+                      </button>
+                    )}
                   </div>
                 )}
               </Droppable>
-
-              {/* Column Footer: Add Item directly to this column (Host only) */}
-              {!readOnly && (
-                <div className="p-3 pt-0">
-                  <button
-                    type="button"
-                    onClick={() => onAddNewItem(col.id)}
-                    className="flex w-full items-center justify-center space-x-1.5 rounded-xl border border-dashed border-slate-300 bg-white/70 py-2 text-xs font-semibold text-slate-600 hover:border-teal-500 hover:bg-white hover:text-teal-800 transition shadow-2xs"
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    <span>เพิ่มรายการในกลุ่มนี้</span>
-                  </button>
-                </div>
-              )}
             </div>
           ))}
         </div>

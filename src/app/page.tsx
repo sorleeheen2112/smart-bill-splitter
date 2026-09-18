@@ -14,6 +14,10 @@ import {
   QrCode,
   CheckCircle2,
   UserCheck,
+  Link2,
+  Copy,
+  Share2,
+  Check,
 } from 'lucide-react';
 import { PartyBill, BillItem, Member } from '@/lib/types';
 import { calculatePartyBill } from '@/lib/calculator';
@@ -68,6 +72,7 @@ export default function Home() {
   const [editingItem, setEditingItem] = useState<BillItem | null>(null);
   const [defaultAssignedTo, setDefaultAssignedTo] = useState('COMMON');
   const [viewingSlipMember, setViewingSlipMember] = useState<Member | null>(null);
+  const [copiedGuestLink, setCopiedGuestLink] = useState(false);
 
   // Load bills on auth state change
   useEffect(() => {
@@ -332,66 +337,157 @@ export default function Home() {
                 {/* Host Publishing Status Control Banner */}
                 <div>
                   {!activeBill.isPublished ? (
-                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 rounded-2xl border border-amber-300 bg-amber-50/90 p-4 text-amber-950 shadow-xs">
-                      <div className="flex items-center space-x-3">
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-200 text-amber-800 font-bold">
-                          <QrCode className="h-5 w-5" />
-                        </div>
-                        <div>
-                          <div className="flex items-center space-x-2">
-                            <span className="rounded-md bg-amber-200 px-2 py-0.5 text-[10px] font-extrabold text-amber-900 tracking-wide uppercase">
-                              สถานะ: กำลังจัดบิล (Draft)
-                            </span>
-                            <span className="text-xs font-bold text-amber-950">ยังไม่เปิดให้เพื่อนสแกนจ่าย QR</span>
+                    <div className="flex flex-col gap-3 rounded-2xl border border-amber-300 bg-amber-50/90 p-4 text-amber-950 shadow-xs">
+                      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                        <div className="flex items-center space-x-3">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-200 text-amber-800 font-bold">
+                            <QrCode className="h-5 w-5" />
                           </div>
-                          <p className="text-[11px] text-amber-800 mt-0.5">
-                            เมื่อใส่รายการอาหาร จัดแก๊ง และตรวจยอดเป๊ะแล้ว ให้กดปุ่มเพื่อสร้าง QR และเปิดรับชำระเงิน
-                          </p>
+                          <div>
+                            <div className="flex items-center space-x-2">
+                              <span className="rounded-md bg-amber-200 px-2 py-0.5 text-[10px] font-extrabold text-amber-900 tracking-wide uppercase">
+                                สถานะ: กำลังจัดบิล (Draft)
+                              </span>
+                              <span className="text-xs font-bold text-amber-950">ยังไม่เปิดให้เพื่อนสแกนจ่าย QR</span>
+                            </div>
+                            <p className="text-[11px] text-amber-800 mt-0.5">
+                              เมื่อใส่รายการอาหาร จัดแก๊ง และตรวจยอดเป๊ะแล้ว ให้กดปุ่มเพื่อสร้าง QR และเปิดรับชำระเงิน
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (typeof window !== 'undefined' && activeBill.id) {
+                                navigator.clipboard.writeText(`${window.location.origin}/bill/${activeBill.id}`);
+                                setCopiedGuestLink(true);
+                                setTimeout(() => setCopiedGuestLink(false), 2000);
+                              }
+                            }}
+                            className="flex items-center justify-center space-x-1.5 rounded-xl border border-amber-300 bg-white px-3.5 py-2 text-xs font-bold text-amber-900 hover:bg-amber-100 shadow-2xs transition cursor-pointer"
+                            title="คัดลอกลิงก์สำหรับเปิดดูบิลนี้"
+                          >
+                            {copiedGuestLink ? (
+                              <>
+                                <Check className="h-3.5 w-3.5 text-emerald-600" />
+                                <span className="text-emerald-700">คัดลอกลิงก์แล้ว!</span>
+                              </>
+                            ) : (
+                              <>
+                                <Link2 className="h-3.5 w-3.5 text-amber-700" />
+                                <span>คัดลอกลิงก์เตรียมไว้</span>
+                              </>
+                            )}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateActiveBill({ isPublished: true, publishedAt: new Date().toISOString() })}
+                            className="flex-1 md:flex-initial flex items-center justify-center space-x-2 rounded-xl bg-teal-700 px-5 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-teal-800 active:scale-95 transition cursor-pointer"
+                          >
+                            <CheckCircle2 className="h-4 w-4 text-teal-200" />
+                            <span>จัดการเสร็จแล้ว • สร้าง QR & เปิดรับเงิน</span>
+                          </button>
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => handleUpdateActiveBill({ isPublished: true, publishedAt: new Date().toISOString() })}
-                        className="w-full md:w-auto flex items-center justify-center space-x-2 rounded-xl bg-teal-700 px-5 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-teal-800 active:scale-95 transition"
-                      >
-                        <CheckCircle2 className="h-4 w-4 text-teal-200" />
-                        <span>จัดการเสร็จแล้ว • สร้าง QR & เปิดรับเงิน</span>
-                      </button>
                     </div>
                   ) : (
-                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4 text-emerald-950 shadow-xs">
-                      <div className="flex items-center space-x-3">
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-200 text-emerald-800 font-bold">
-                          <CheckCircle2 className="h-5 w-5" />
-                        </div>
-                        <div>
-                          <div className="flex items-center space-x-2">
-                            <span className="rounded-md bg-emerald-200 px-2 py-0.5 text-[10px] font-extrabold text-emerald-900 tracking-wide uppercase">
-                              สถานะ: เปิดรับเงินแล้ว (Live)
-                            </span>
-                            <span className="text-xs font-bold text-emerald-950">เพื่อนๆ สามารถเลือกชื่อและสแกน QR ได้แล้ว</span>
+                    <div className="flex flex-col gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4 text-emerald-950 shadow-xs">
+                      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                        <div className="flex items-center space-x-3">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-200 text-emerald-800 font-bold">
+                            <CheckCircle2 className="h-5 w-5" />
                           </div>
-                          <p className="text-[11px] text-emerald-800 mt-0.5">
-                            เปิดให้สแกนจ่ายเมื่อ {activeBill.publishedAt ? new Date(activeBill.publishedAt).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) : 'สักครู่'} • หากต้องการแก้ไขรายการ สามารถกดพักการจ่ายได้
-                          </p>
+                          <div>
+                            <div className="flex items-center space-x-2">
+                              <span className="rounded-md bg-emerald-200 px-2 py-0.5 text-[10px] font-extrabold text-emerald-900 tracking-wide uppercase">
+                                สถานะ: เปิดรับเงินแล้ว (Live)
+                              </span>
+                              <span className="text-xs font-bold text-emerald-950">เพื่อนๆ สามารถเลือกชื่อและสแกน QR ได้แล้ว</span>
+                            </div>
+                            <p className="text-[11px] text-emerald-800 mt-0.5">
+                              เปิดให้สแกนจ่ายเมื่อ {activeBill.publishedAt ? new Date(activeBill.publishedAt).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) : 'สักครู่'} • หากต้องการแก้ไขรายการ สามารถกดพักการจ่ายได้
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (typeof window !== 'undefined' && activeBill.id) {
+                                navigator.clipboard.writeText(`${window.location.origin}/bill/${activeBill.id}`);
+                                setCopiedGuestLink(true);
+                                setTimeout(() => setCopiedGuestLink(false), 2000);
+                              }
+                            }}
+                            className="flex-1 md:flex-initial flex items-center justify-center space-x-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-700 shadow-xs transition cursor-pointer"
+                            title="คัดลอกลิงก์ส่งให้เพื่อน"
+                          >
+                            {copiedGuestLink ? (
+                              <>
+                                <Check className="h-3.5 w-3.5" />
+                                <span>คัดลอกลิงก์แล้ว!</span>
+                              </>
+                            ) : (
+                              <>
+                                <Link2 className="h-3.5 w-3.5" />
+                                <span>คัดลอกลิงก์ให้เพื่อน</span>
+                              </>
+                            )}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setIsLineShareOpen(true)}
+                            className="flex items-center justify-center space-x-1.5 rounded-xl bg-[#06C755] px-3.5 py-2 text-xs font-bold text-white hover:bg-[#05a346] shadow-xs transition cursor-pointer"
+                            title="เปิดข้อความสรุปส่ง LINE"
+                          >
+                            <Share2 className="h-3.5 w-3.5" />
+                            <span>ส่งเข้า LINE</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setActiveView('guest')}
+                            className="flex items-center justify-center space-x-1.5 rounded-xl border border-emerald-300 bg-white px-3.5 py-2 text-xs font-bold text-emerald-800 hover:bg-emerald-50 shadow-2xs transition cursor-pointer"
+                          >
+                            <UserCheck className="h-3.5 w-3.5" />
+                            <span>ดูหน้าสแกนจ่าย</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateActiveBill({ isPublished: false })}
+                            className="flex items-center justify-center space-x-1.5 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-2xs transition cursor-pointer"
+                            title="พักการจ่ายชั่วคราวเพื่อแก้ไขบิล"
+                          >
+                            <span>พักการจ่าย</span>
+                          </button>
                         </div>
                       </div>
-                      <div className="flex items-center space-x-2 w-full md:w-auto">
+
+                      {/* Explicit Guest Link Card Box */}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-xl bg-white/90 border border-emerald-200 p-2.5 sm:px-3.5 text-xs shadow-2xs">
+                        <div className="flex items-center space-x-2 truncate">
+                          <span className="font-bold text-emerald-900 shrink-0">🔗 ลิงก์สำหรับส่งต่อให้เพื่อน:</span>
+                          <span className="font-mono text-slate-600 truncate select-all bg-slate-50 px-2 py-0.5 rounded border border-slate-200 text-[11px]">
+                            {typeof window !== 'undefined' ? `${window.location.origin}/bill/${activeBill.id}` : `/bill/${activeBill.id}`}
+                          </span>
+                        </div>
                         <button
                           type="button"
-                          onClick={() => setActiveView('guest')}
-                          className="flex-1 md:flex-initial flex items-center justify-center space-x-1.5 rounded-xl border border-emerald-300 bg-white px-3.5 py-2 text-xs font-bold text-emerald-800 hover:bg-emerald-50 shadow-2xs transition"
+                          onClick={() => {
+                            if (typeof window !== 'undefined' && activeBill.id) {
+                              navigator.clipboard.writeText(`${window.location.origin}/bill/${activeBill.id}`);
+                              setCopiedGuestLink(true);
+                              setTimeout(() => setCopiedGuestLink(false), 2000);
+                            }
+                          }}
+                          className="shrink-0 self-end sm:self-auto flex items-center space-x-1 rounded-lg bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800 hover:bg-emerald-100 border border-emerald-300 transition cursor-pointer"
                         >
-                          <UserCheck className="h-3.5 w-3.5" />
-                          <span>ดูหน้าสแกนจ่าย (Guest)</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleUpdateActiveBill({ isPublished: false })}
-                          className="flex items-center justify-center space-x-1.5 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-2xs transition"
-                          title="พักการจ่ายชั่วคราวเพื่อแก้ไขบิล"
-                        >
-                          <span>พักการจ่าย</span>
+                          {copiedGuestLink ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3 text-emerald-700" />}
+                          <span>{copiedGuestLink ? 'คัดลอกสำเร็จแล้ว' : 'คัดลอกลิงก์'}</span>
                         </button>
                       </div>
                     </div>

@@ -12,6 +12,8 @@ import {
   LogOut,
   Cloud,
   HelpCircle,
+  Link2,
+  Check,
 } from 'lucide-react';
 import { PartyBill } from '@/lib/types';
 import { useAuth } from '@/context/AuthContext';
@@ -39,6 +41,16 @@ export const Navbar: React.FC<NavbarProps> = ({
   const { hostUser, signOut, isSupabaseActive } = useAuth();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isHostGuideOpen, setIsHostGuideOpen] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+
+  const handleCopyBillLink = () => {
+    if (typeof window !== 'undefined' && bill?.id) {
+      const url = `${window.location.origin}/bill/${bill.id}`;
+      navigator.clipboard.writeText(url);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
+    }
+  };
 
   return (
     <>
@@ -119,6 +131,27 @@ export const Navbar: React.FC<NavbarProps> = ({
               >
                 <History className="h-3.5 w-3.5 text-teal-600" />
                 <span className="hidden sm:inline">ประวัติบิล</span>
+              </button>
+            )}
+
+            {hostUser && (
+              <button
+                type="button"
+                onClick={handleCopyBillLink}
+                className="flex items-center space-x-1 rounded-xl border border-teal-300 bg-teal-50 px-3 py-1.5 text-xs font-bold text-teal-800 hover:bg-teal-100 transition shadow-2xs cursor-pointer"
+                title="คัดลอกลิงก์หน้าบิลส่งให้เพื่อน"
+              >
+                {copiedLink ? (
+                  <>
+                    <Check className="h-3.5 w-3.5 text-emerald-600" />
+                    <span className="text-emerald-700">คัดลอกลิงก์แล้ว!</span>
+                  </>
+                ) : (
+                  <>
+                    <Link2 className="h-3.5 w-3.5 text-teal-700" />
+                    <span className="hidden sm:inline">คัดลอกลิงก์ให้เพื่อน</span>
+                  </>
+                )}
               </button>
             )}
 
