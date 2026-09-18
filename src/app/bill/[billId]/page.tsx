@@ -248,31 +248,6 @@ export default function DynamicBillPage() {
             )}
 
             <button
-              type="button"
-              onClick={() => {
-                if (typeof window !== 'undefined' && bill.id) {
-                  navigator.clipboard.writeText(`${window.location.origin}/bill/${bill.id}`);
-                  setCopiedLink(true);
-                  setTimeout(() => setCopiedLink(false), 2000);
-                }
-              }}
-              className="flex items-center space-x-1 rounded-xl border border-teal-300 bg-teal-50 px-3 py-1.5 text-xs font-bold text-teal-800 hover:bg-teal-100 transition shadow-2xs cursor-pointer"
-              title="คัดลอกลิงก์หน้าบิลส่งให้เพื่อน"
-            >
-              {copiedLink ? (
-                <>
-                  <Check className="h-3.5 w-3.5 text-emerald-600" />
-                  <span className="text-emerald-700">คัดลอกลิงก์แล้ว!</span>
-                </>
-              ) : (
-                <>
-                  <Link2 className="h-3.5 w-3.5 text-teal-700" />
-                  <span className="hidden sm:inline">คัดลอกลิงก์</span>
-                </>
-              )}
-            </button>
-
-            <button
               onClick={() => setIsLineShareOpen(true)}
               className="flex items-center space-x-1 rounded-xl bg-[#06C755]/10 px-3 py-1.5 text-xs font-bold text-[#05963f] border border-[#06C755]/30 hover:bg-[#06C755]/20 transition cursor-pointer"
               title="สรุปส่งเข้า LINE"
@@ -365,39 +340,7 @@ export default function DynamicBillPage() {
                           </p>
                         </div>
                       </div>
-                      <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (typeof window !== 'undefined' && bill.id) {
-                              navigator.clipboard.writeText(`${window.location.origin}/bill/${bill.id}`);
-                              setCopiedLink(true);
-                              setTimeout(() => setCopiedLink(false), 2000);
-                            }
-                          }}
-                          className="flex-1 md:flex-initial flex items-center justify-center space-x-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-700 shadow-xs transition cursor-pointer"
-                          title="คัดลอกลิงก์ส่งให้เพื่อน"
-                        >
-                          {copiedLink ? (
-                            <>
-                              <Check className="h-3.5 w-3.5" />
-                              <span>คัดลอกลิงก์แล้ว!</span>
-                            </>
-                          ) : (
-                            <>
-                              <Link2 className="h-3.5 w-3.5" />
-                              <span>คัดลอกลิงก์ให้เพื่อน</span>
-                            </>
-                          )}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setIsLineShareOpen(true)}
-                          className="flex items-center justify-center space-x-1.5 rounded-xl bg-[#06C755] px-3.5 py-2 text-xs font-bold text-white hover:bg-[#05a346] shadow-xs transition cursor-pointer"
-                        >
-                          <Share2 className="h-3.5 w-3.5" />
-                          <span>ส่ง LINE</span>
-                        </button>
+                      <div className="flex items-center space-x-2 w-full md:w-auto">
                         <button
                           type="button"
                           onClick={() => setActiveView('guest')}

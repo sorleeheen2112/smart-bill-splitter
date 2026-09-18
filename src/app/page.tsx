@@ -411,46 +411,11 @@ export default function Home() {
                             </p>
                           </div>
                         </div>
-                        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (typeof window !== 'undefined' && activeBill.id) {
-                                navigator.clipboard.writeText(`${window.location.origin}/bill/${activeBill.id}`);
-                                setCopiedGuestLink(true);
-                                setTimeout(() => setCopiedGuestLink(false), 2000);
-                              }
-                            }}
-                            className="flex-1 md:flex-initial flex items-center justify-center space-x-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-700 shadow-xs transition cursor-pointer"
-                            title="คัดลอกลิงก์ส่งให้เพื่อน"
-                          >
-                            {copiedGuestLink ? (
-                              <>
-                                <Check className="h-3.5 w-3.5" />
-                                <span>คัดลอกลิงก์แล้ว!</span>
-                              </>
-                            ) : (
-                              <>
-                                <Link2 className="h-3.5 w-3.5" />
-                                <span>คัดลอกลิงก์ให้เพื่อน</span>
-                              </>
-                            )}
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => setIsLineShareOpen(true)}
-                            className="flex items-center justify-center space-x-1.5 rounded-xl bg-[#06C755] px-3.5 py-2 text-xs font-bold text-white hover:bg-[#05a346] shadow-xs transition cursor-pointer"
-                            title="เปิดข้อความสรุปส่ง LINE"
-                          >
-                            <Share2 className="h-3.5 w-3.5" />
-                            <span>ส่งเข้า LINE</span>
-                          </button>
-
+                        <div className="flex items-center space-x-2 w-full md:w-auto">
                           <button
                             type="button"
                             onClick={() => setActiveView('guest')}
-                            className="flex items-center justify-center space-x-1.5 rounded-xl border border-emerald-300 bg-white px-3.5 py-2 text-xs font-bold text-emerald-800 hover:bg-emerald-50 shadow-2xs transition cursor-pointer"
+                            className="flex-1 md:flex-initial flex items-center justify-center space-x-1.5 rounded-xl border border-emerald-300 bg-white px-3.5 py-2 text-xs font-bold text-emerald-800 hover:bg-emerald-50 shadow-2xs transition cursor-pointer"
                           >
                             <UserCheck className="h-3.5 w-3.5" />
                             <span>ดูหน้าสแกนจ่าย</span>
