@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, Plus, Calendar, MapPin, QrCode, Gift, Check } from 'lucide-react';
+import { X, Plus, Calendar, MapPin, QrCode, Gift, CreditCard, Check } from 'lucide-react';
 import { PartyBill, Gang } from '@/lib/types';
 import { useAuth } from '@/context/AuthContext';
 
@@ -23,6 +23,7 @@ export const NewBillModal: React.FC<NewBillModalProps> = ({
   const [promptPayNumber, setPromptPayNumber] = useState(hostUser?.defaultPromptPay || '0891234567');
   const [promptPayName, setPromptPayName] = useState(hostUser ? `${hostUser.firstName} (เหรัญญิก)` : '');
   const [sponsorBudget, setSponsorBudget] = useState<number>(0);
+  const [depositAmount, setDepositAmount] = useState<number>(0);
 
   if (!isOpen) return null;
 
@@ -38,6 +39,7 @@ export const NewBillModal: React.FC<NewBillModalProps> = ({
       vatMode: 'INCLUDE',
       vatRate: 0.07,
       sponsorBudget: Number(sponsorBudget) || 0,
+      depositAmount: Number(depositAmount) || 0,
       promptPayNumber: promptPayNumber.trim(),
       promptPayName: promptPayName.trim(),
       hostPin: '1234',
@@ -130,20 +132,21 @@ export const NewBillModal: React.FC<NewBillModalProps> = ({
             </div>
           </div>
 
+          <div>
+            <label className="flex items-center space-x-1 text-xs font-bold text-slate-700 mb-1">
+              <QrCode className="h-3.5 w-3.5 text-teal-600" />
+              <span>เบอร์พร้อมเพย์รับเงิน</span>
+            </label>
+            <input
+              type="text"
+              value={promptPayNumber}
+              onChange={(e) => setPromptPayNumber(e.target.value)}
+              placeholder="0812345678"
+              className="w-full rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-teal-800 font-mono font-semibold focus:border-teal-600 focus:outline-none shadow-2xs"
+            />
+          </div>
+
           <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="flex items-center space-x-1 text-xs font-bold text-slate-700 mb-1">
-                <QrCode className="h-3.5 w-3.5 text-teal-600" />
-                <span>เบอร์พร้อมเพย์</span>
-              </label>
-              <input
-                type="text"
-                value={promptPayNumber}
-                onChange={(e) => setPromptPayNumber(e.target.value)}
-                placeholder="0812345678"
-                className="w-full rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-teal-800 font-mono font-semibold focus:border-teal-600 focus:outline-none shadow-2xs"
-              />
-            </div>
             <div>
               <label className="flex items-center space-x-1 text-xs font-bold text-amber-900 mb-1">
                 <Gift className="h-3.5 w-3.5 text-amber-600" />
@@ -160,6 +163,24 @@ export const NewBillModal: React.FC<NewBillModalProps> = ({
                 }}
                 placeholder="0"
                 className="w-full rounded-xl border border-amber-300 bg-amber-50/50 px-2.5 py-1.5 text-xs text-amber-900 font-mono font-bold focus:border-amber-600 focus:outline-none shadow-2xs"
+              />
+            </div>
+            <div>
+              <label className="flex items-center space-x-1 text-xs font-bold text-blue-900 mb-1">
+                <CreditCard className="h-3.5 w-3.5 text-blue-600" />
+                <span>เงินมัดจำ (บาท)</span>
+              </label>
+              <input
+                type="number"
+                min={0}
+                step={100}
+                value={depositAmount === 0 ? '' : depositAmount}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setDepositAmount(val === '' ? 0 : Math.max(0, Number(val)));
+                }}
+                placeholder="0"
+                className="w-full rounded-xl border border-blue-300 bg-blue-50/50 px-2.5 py-1.5 text-xs text-blue-900 font-mono font-bold focus:border-blue-600 focus:outline-none shadow-2xs"
               />
             </div>
           </div>

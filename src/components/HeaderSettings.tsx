@@ -21,7 +21,7 @@ export const HeaderSettings: React.FC<HeaderSettingsProps> = ({
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-xs">
       {/* Top Banner with Quick Financial Metrics */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 mb-6">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5 mb-6">
         <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3.5">
           <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
             <span>ยอดรวมบิลทั้งโต๊ะ</span>
@@ -52,7 +52,20 @@ export const HeaderSettings: React.FC<HeaderSettingsProps> = ({
             {formatTHB(bill.sponsorBudget || 0)}
           </div>
           <span className="text-[11px] text-amber-700/80 font-medium">
-            หักลดจากยอดอาหารกองกลาง
+            หักลดจากยอดกองกลาง
+          </span>
+        </div>
+
+        <div className="rounded-xl border border-blue-200 bg-blue-50/70 p-3.5">
+          <div className="flex items-center justify-between text-xs text-blue-800 font-semibold">
+            <span>เงินมัดจำ (Deposit)</span>
+            <CreditCard className="h-4 w-4 text-blue-600" />
+          </div>
+          <div className="mt-1 text-lg font-bold text-blue-900 sm:text-xl font-mono">
+            {formatTHB(bill.depositAmount || 0)}
+          </div>
+          <span className="text-[11px] text-blue-700/80 font-medium">
+            หักลดจากยอดกองกลาง
           </span>
         </div>
 
@@ -69,7 +82,7 @@ export const HeaderSettings: React.FC<HeaderSettingsProps> = ({
           </span>
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3.5">
+        <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3.5 col-span-2 sm:col-span-1">
           <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
             <span>จำนวนผู้ร่วมงาน</span>
             <Users className="h-4 w-4 text-slate-700" />
@@ -77,11 +90,11 @@ export const HeaderSettings: React.FC<HeaderSettingsProps> = ({
           <div className="mt-1 text-lg font-bold text-slate-900 sm:text-xl">
             {bill.members.length} คน
           </div>
-          <div className="flex items-center space-x-1.5 text-[11px] text-slate-500 font-medium">
+          <div className="flex items-center space-x-1.5 text-[11px] text-slate-500 font-medium truncate">
             <span>หารจริง {calculation.payingCommonMembersCount}</span>
             <span>•</span>
             <span className="text-amber-700 font-semibold">
-              ฟรี {bill.members.filter((m) => m.isFree).length} (Tag F)
+              ฟรี {bill.members.filter((m) => m.isFree).length} (F)
             </span>
           </div>
         </div>
@@ -318,31 +331,60 @@ export const HeaderSettings: React.FC<HeaderSettingsProps> = ({
             </div>
           </div>
 
-          <div>
-            <label className="flex items-center justify-between text-xs font-bold text-amber-900 mb-1">
-              <span className="flex items-center space-x-1">
-                <Gift className="h-3.5 w-3.5 text-amber-600" />
-                <span>งบสนับสนุนกองกลาง (Sponsor Budget)</span>
-              </span>
-              <span className="text-[11px] text-amber-700 font-medium">หักจากส่วนรวม</span>
-            </label>
-            <div className="relative">
-              <input
-                type="number"
-                disabled={readOnly}
-                min={0}
-                step={50}
-                value={bill.sponsorBudget === 0 ? '' : bill.sponsorBudget}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  onUpdateBill({ sponsorBudget: val === '' ? 0 : Math.max(0, Number(val)) });
-                }}
-                placeholder="0"
-                className="w-full rounded-xl border border-amber-300 bg-amber-50/50 px-3 py-1.5 text-sm font-bold text-amber-900 font-mono placeholder-amber-400 focus:border-amber-600 focus:outline-none focus:ring-1 focus:ring-amber-600 transition shadow-2xs disabled:bg-slate-50 disabled:border-slate-300 disabled:text-slate-700 disabled:cursor-not-allowed"
-              />
-              <span className="absolute right-3 top-2 text-xs font-semibold text-amber-700">
-                บาท (THB)
-              </span>
+          {/* Sponsor Budget & Deposit Amount Inputs */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div>
+              <label className="flex items-center justify-between text-xs font-bold text-amber-900 mb-1">
+                <span className="flex items-center space-x-1 truncate">
+                  <Gift className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                  <span className="truncate">งบ Sponsor</span>
+                </span>
+              </label>
+              <div className="relative">
+                <input
+                  type="number"
+                  disabled={readOnly}
+                  min={0}
+                  step={50}
+                  value={bill.sponsorBudget === 0 ? '' : bill.sponsorBudget}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    onUpdateBill({ sponsorBudget: val === '' ? 0 : Math.max(0, Number(val)) });
+                  }}
+                  placeholder="0"
+                  className="w-full rounded-xl border border-amber-300 bg-amber-50/50 px-3 py-1.5 text-sm font-bold text-amber-900 font-mono placeholder-amber-400 focus:border-amber-600 focus:outline-none focus:ring-1 focus:ring-amber-600 transition shadow-2xs disabled:bg-slate-50 disabled:border-slate-300 disabled:text-slate-700 disabled:cursor-not-allowed pr-10"
+                />
+                <span className="absolute right-2.5 top-2 text-[11px] font-semibold text-amber-700">
+                  บาท
+                </span>
+              </div>
+            </div>
+
+            <div>
+              <label className="flex items-center justify-between text-xs font-bold text-blue-900 mb-1">
+                <span className="flex items-center space-x-1 truncate">
+                  <CreditCard className="h-3.5 w-3.5 text-blue-600 shrink-0" />
+                  <span className="truncate">เงินมัดจำ</span>
+                </span>
+              </label>
+              <div className="relative">
+                <input
+                  type="number"
+                  disabled={readOnly}
+                  min={0}
+                  step={50}
+                  value={!bill.depositAmount || bill.depositAmount === 0 ? '' : bill.depositAmount}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    onUpdateBill({ depositAmount: val === '' ? 0 : Math.max(0, Number(val)) });
+                  }}
+                  placeholder="0"
+                  className="w-full rounded-xl border border-blue-300 bg-blue-50/50 px-3 py-1.5 text-sm font-bold text-blue-900 font-mono placeholder-blue-400 focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600 transition shadow-2xs disabled:bg-slate-50 disabled:border-slate-300 disabled:text-slate-700 disabled:cursor-not-allowed pr-10"
+                />
+                <span className="absolute right-2.5 top-2 text-[11px] font-semibold text-blue-700">
+                  บาท
+                </span>
+              </div>
             </div>
           </div>
         </div>

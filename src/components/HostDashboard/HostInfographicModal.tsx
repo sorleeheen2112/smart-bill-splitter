@@ -233,9 +233,9 @@ export const HostInfographicModal: React.FC<HostInfographicModalProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
               <div className="rounded-xl bg-white p-3.5 border border-teal-100 shadow-2xs">
-                <div className="font-bold text-slate-900 mb-1">🎁 งบสปอนเซอร์ (Sponsor)</div>
+                <div className="font-bold text-slate-900 mb-1">🎁 Sponsor & เงินมัดจำ</div>
                 <p className="text-slate-600 text-[11px] leading-relaxed">
-                  ถ้ามีหัวหน้าหรือพี่ใหญ่ช่วยออกเงิน ให้กรอกในช่อง <strong>Sponsor Budget</strong> ระบบจะหักลดจากยอดอาหารกองกลางให้อัตโนมัติ
+                  ถ้ามีคนช่วยออกเงิน (Sponsor) หรือมีการจ่ายเงินมัดจำล่วงหน้า ให้กรอกยอด ระบบจะหักลดจากยอดอาหารกองกลางให้อัตโนมัติ
                 </p>
               </div>
 

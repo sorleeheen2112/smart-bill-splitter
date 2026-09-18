@@ -61,9 +61,10 @@ export const ReconciliationBar: React.FC<ReconciliationBarProps> = ({
               </span>
             </div>
             <p className="mt-0.5 text-xs text-slate-600">
-              ผลรวมยอดเพื่อนทุกคน ({formatTHB(calculation.sumTotalPayable)}) + งบสนับสนุน (
-              {formatTHB(Math.min(bill.sponsorBudget || 0, calculation.effectiveCommonTotal))}) = ยอดบิลสุทธิ (
-              {formatTHB(calculation.effectiveGrandTotal)})
+              ผลรวมยอดเพื่อนทุกคน ({formatTHB(calculation.sumTotalPayable)})
+              {(bill.sponsorBudget || 0) > 0 && ` + งบ Sponsor (${formatTHB(Math.min(bill.sponsorBudget || 0, calculation.effectiveCommonTotal))})`}
+              {(bill.depositAmount || 0) > 0 && ` + มัดจำ (${formatTHB(Math.min(bill.depositAmount || 0, calculation.effectiveCommonTotal))})`}
+              {' '}= ยอดบิลสุทธิ ({formatTHB(calculation.effectiveGrandTotal)})
             </p>
           </div>
         </div>

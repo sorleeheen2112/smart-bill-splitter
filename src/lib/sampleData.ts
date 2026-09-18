@@ -8,6 +8,7 @@ export const initialSamplePartyBill: PartyBill = {
   vatMode: 'INCLUDE',
   vatRate: 0.07,
   sponsorBudget: 5000,
+  depositAmount: 1000,
   promptPayNumber: '0891234567',
   promptPayName: 'นายสอ (เหรัญญิกปาร์ตี้)',
   hostPin: '1234',

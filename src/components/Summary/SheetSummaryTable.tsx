@@ -292,7 +292,9 @@ export const SheetSummaryTable: React.FC<SheetSummaryTableProps> = ({
                   {formatTHB(calculation.sumTotalPayable)}
                 </td>
                 <td className="p-3 text-center text-xs text-slate-500 font-normal">
-                  (งบ +{formatTHB(bill.sponsorBudget || 0)})
+                  {(bill.sponsorBudget || 0) > 0 && <div>งบ +{formatTHB(bill.sponsorBudget || 0)}</div>}
+                  {(bill.depositAmount || 0) > 0 && <div>มัดจำ +{formatTHB(bill.depositAmount || 0)}</div>}
+                  {!(bill.sponsorBudget || 0) && !(bill.depositAmount || 0) && <span>ครบถ้วน</span>}
                 </td>
               </tr>
             </tfoot>

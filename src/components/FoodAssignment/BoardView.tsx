@@ -60,7 +60,7 @@ export const BoardView: React.FC<BoardViewProps> = ({
     {
       id: 'COMMON',
       name: '📦 [1] กองกลาง / ส่วนรวม',
-      description: 'ทุกคนช่วยกันหาร (หักงบ Sponsor ก่อนหาร)',
+      description: 'ทุกคนช่วยกันหาร (หักงบ Sponsor & มัดจำ ก่อนหาร)',
       colorClass: 'border-slate-300 bg-slate-100/80',
       headerBg: 'bg-white text-slate-900 border-slate-200',
       items: bill.items.filter((it) => !it.assignedTo || it.assignedTo === 'COMMON'),

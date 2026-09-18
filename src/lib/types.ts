@@ -36,6 +36,7 @@ export interface PartyBill {
   vatMode: 'INCLUDE' | 'EXCLUDE';
   vatRate: number; // e.g. 0.07 for 7%
   sponsorBudget: number; // e.g. 5000
+  depositAmount?: number; // e.g. 1000 (pre-paid deposit to be deducted from common)
   promptPayNumber: string; // e.g. "0812345678"
   promptPayName?: string;
   payerMemberId?: string; // ID of the member who paid upfront (auto-verified)
@@ -81,12 +82,13 @@ export interface CalculationResult {
   rawCommonTotal: number;
   effectiveCommonTotal: number;
   sponsorBudget: number;
-  netCommonTotal: number; // Math.max(0, effectiveCommonTotal - sponsorBudget)
+  depositAmount: number;
+  netCommonTotal: number; // Math.max(0, effectiveCommonTotal - sponsorBudget - depositAmount)
   payingCommonMembersCount: number;
   commonSharePerPerson: number;
   gangsBreakdown: Record<string, GangCalculationBreakdown>;
   membersBreakdown: Record<string, MemberCalculationBreakdown>;
   sumTotalPayable: number;
-  reconciliationDiff: number; // (sumTotalPayable + sponsorBudget) - effectiveGrandTotal
+  reconciliationDiff: number; // (sumTotalPayable + sponsorBudget + depositAmount) - effectiveGrandTotal
   isReconciled: boolean;
 }

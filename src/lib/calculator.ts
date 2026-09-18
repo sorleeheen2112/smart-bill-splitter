@@ -33,6 +33,8 @@ export function calculatePartyBill(bill: PartyBill): CalculationResult {
   const vatRate = bill.vatRate ?? 0.07;
   const serviceChargeRate = bill.serviceChargeRate || 0;
   const sponsorBudget = bill.sponsorBudget || 0;
+  const depositAmount = bill.depositAmount || 0;
+  const totalCommonDeductions = sponsorBudget + depositAmount;
 
   // 1. Calculate raw and effective totals
   let rawGrandTotal = 0;
@@ -82,7 +84,7 @@ export function calculatePartyBill(bill: PartyBill): CalculationResult {
   // 2. Common calculation
   const payingCommonMembers = (bill.members || []).filter((m) => !m.isFree);
   const payingCommonMembersCount = payingCommonMembers.length;
-  const netCommonTotal = Math.max(0, effectiveCommonTotal - sponsorBudget);
+  const netCommonTotal = Math.max(0, effectiveCommonTotal - totalCommonDeductions);
   const commonSharePerPerson = payingCommonMembersCount > 0 ? netCommonTotal / payingCommonMembersCount : 0;
 
   // 3. Gang calculations
@@ -174,9 +176,9 @@ export function calculatePartyBill(bill: PartyBill): CalculationResult {
   });
 
   // 5. Reconciliation calculation
-  // Total bill = sum(paying member amounts) + actual sponsor used (up to common total)
-  const actualSponsorUsed = Math.min(sponsorBudget, effectiveCommonTotal);
-  const totalAccounted = sumTotalPayable + actualSponsorUsed;
+  // Total bill = sum(paying member amounts) + actual sponsor/deposit used (up to common total)
+  const actualDeductionsUsed = Math.min(totalCommonDeductions, effectiveCommonTotal);
+  const totalAccounted = sumTotalPayable + actualDeductionsUsed;
   const reconciliationDiff = totalAccounted - effectiveGrandTotal;
   const isReconciled = Math.abs(reconciliationDiff) < 0.05 || payingCommonMembersCount === 0;
 
@@ -188,6 +190,7 @@ export function calculatePartyBill(bill: PartyBill): CalculationResult {
     rawCommonTotal: roundTo2Decimals(rawCommonTotal),
     effectiveCommonTotal: roundTo2Decimals(effectiveCommonTotal),
     sponsorBudget: roundTo2Decimals(sponsorBudget),
+    depositAmount: roundTo2Decimals(depositAmount),
     netCommonTotal: roundTo2Decimals(netCommonTotal),
     payingCommonMembersCount,
     commonSharePerPerson: roundTo2Decimals(commonSharePerPerson),

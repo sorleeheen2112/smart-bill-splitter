@@ -38,8 +38,11 @@ export const LineShareModal: React.FC<LineShareModalProps> = ({
     breakdownNote = ` (อาหาร ${formatTHB(calculation.rawGrandTotal)}${scText} + VAT 7%)`;
   }
   lines.push(`💵 ยอดบิลรวมสุทธิ: ${formatTHB(calculation.effectiveGrandTotal)}${breakdownNote}`);
-  if (bill.sponsorBudget > 0) {
-    lines.push(`🎁 งบสนับสนุนกองกลาง: -${formatTHB(bill.sponsorBudget)}`);
+  if ((bill.sponsorBudget || 0) > 0) {
+    lines.push(`🎁 งบสนับสนุนกองกลาง: -${formatTHB(bill.sponsorBudget || 0)}`);
+  }
+  if ((bill.depositAmount || 0) > 0) {
+    lines.push(`💳 หักเงินมัดจำล่วงหน้า: -${formatTHB(bill.depositAmount || 0)}`);
   }
   lines.push(`🍽️ ค่าอาหารกองกลางสุทธิ: ${formatTHB(calculation.netCommonTotal)} (คนละ ${formatTHB(calculation.commonSharePerPerson)})`);
   lines.push(`─────────────────`);

@@ -58,6 +58,7 @@ export async function fetchPartyBillFromSupabase(billId: string): Promise<PartyB
       vatRate: Number(data.vat_rate) || 0.07,
       serviceChargeRate: Number(data.service_charge_rate) || 0,
       sponsorBudget: Number(data.sponsor_budget) || 0,
+      depositAmount: Number(data.deposit_amount) || 0,
       promptPayNumber: data.promptpay_number || '',
       promptPayName: data.promptpay_name || '',
       payerMemberId: data.payer_member_id || (data.members || []).find((m: any) => m.isPayer)?.id,
@@ -104,7 +105,8 @@ export async function savePartyBillToSupabase(bill: PartyBill, hostId?: string):
       service_charge_rate: bill.serviceChargeRate || 0,
       vat_mode: bill.vatMode,
       vat_rate: bill.vatRate,
-      sponsor_budget: bill.sponsorBudget,
+      sponsor_budget: bill.sponsorBudget || 0,
+      deposit_amount: bill.depositAmount || 0,
       promptpay_number: bill.promptPayNumber,
       promptpay_name: bill.promptPayName || '',
       host_pin: bill.hostPin || '1234',
@@ -121,6 +123,9 @@ export async function savePartyBillToSupabase(bill: PartyBill, hostId?: string):
       .upsert(payload, { onConflict: 'id' });
 
     if (error) {
+      if (error.message?.includes('deposit_amount') || error.code === '42703') {
+        delete payload.deposit_amount;
+      }
       if (error.message?.includes('service_charge_rate') || error.code === '42703') {
         delete payload.service_charge_rate;
       }
@@ -173,6 +178,7 @@ export async function fetchHostPartyBills(hostId: string): Promise<PartyBill[]> 
       vatMode: d.vat_mode || 'INCLUDE',
       vatRate: Number(d.vat_rate) || 0.07,
       sponsorBudget: Number(d.sponsor_budget) || 0,
+      depositAmount: Number(d.deposit_amount) || 0,
       promptPayNumber: d.promptpay_number || '',
       promptPayName: d.promptpay_name || '',
       hostPin: d.host_pin || '1234',

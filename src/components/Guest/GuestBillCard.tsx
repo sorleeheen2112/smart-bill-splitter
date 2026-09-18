@@ -100,10 +100,17 @@ export const GuestBillCard: React.FC<GuestBillCardProps> = ({
               <span className="font-mono font-bold text-slate-800">{formatTHB(calculation.effectiveCommonTotal)}</span>
             </div>
 
-            {bill.sponsorBudget > 0 && (
+            {(bill.sponsorBudget || 0) > 0 && (
               <div className="text-[11px] text-amber-700 flex justify-between font-semibold">
                 <span>หักงบสนับสนุน Sponsor:</span>
-                <span className="font-mono">-{formatTHB(bill.sponsorBudget)}</span>
+                <span className="font-mono">-{formatTHB(bill.sponsorBudget || 0)}</span>
+              </div>
+            )}
+
+            {(bill.depositAmount || 0) > 0 && (
+              <div className="text-[11px] text-blue-700 flex justify-between font-semibold">
+                <span>หักเงินมัดจำล่วงหน้า:</span>
+                <span className="font-mono">-{formatTHB(bill.depositAmount || 0)}</span>
               </div>
             )}
           </div>
