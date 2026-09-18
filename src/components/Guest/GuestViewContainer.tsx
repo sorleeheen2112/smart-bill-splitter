@@ -1,12 +1,13 @@
 'use client';
 
 import React, { useState } from 'react';
-import { UserCheck, Search, Share2, Check, CreditCard, CheckCircle2, X, HelpCircle } from 'lucide-react';
+import { UserCheck, Search, Share2, Check, CreditCard, CheckCircle2, X, HelpCircle, Coffee } from 'lucide-react';
 import { PartyBill, CalculationResult } from '@/lib/types';
 import { GuestBillCard } from './GuestBillCard';
 import { PromptPayQRCode } from './PromptPayQRCode';
 import { SlipUploadSection } from './SlipUploadSection';
 import { GuestInfographicModal } from './GuestInfographicModal';
+import { DeveloperDonationModal } from './DeveloperDonationModal';
 import { formatTHB } from '@/lib/calculator';
 
 interface GuestViewContainerProps {
@@ -31,6 +32,27 @@ export const GuestViewContainer: React.FC<GuestViewContainerProps> = ({
   const [copiedLink, setCopiedLink] = useState(false);
   const [isSlipModalOpen, setIsSlipModalOpen] = useState(false);
   const [isInfographicOpen, setIsInfographicOpen] = useState(false);
+  const [isDonationModalOpen, setIsDonationModalOpen] = useState(false);
+
+  // Developer Donation Config from Environment Variables
+  const donationEnabledEnv = (
+    process.env.NEXT_PUBLIC_ENABLE_DONATION ||
+    process.env.NEXT_PUBLIC_DONATION_ENABLED ||
+    ''
+  ).toLowerCase();
+  const donationPromptPayNumber =
+    process.env.NEXT_PUBLIC_DONATION_PROMPTPAY_NUMBER ||
+    process.env.NEXT_PUBLIC_DEVELOPER_PROMPTPAY_NUMBER ||
+    '';
+  const donationPromptPayName =
+    process.env.NEXT_PUBLIC_DONATION_PROMPTPAY_NAME ||
+    process.env.NEXT_PUBLIC_DEVELOPER_PROMPTPAY_NAME ||
+    '';
+
+  const isDonationEnabled =
+    (donationEnabledEnv === 'true' || donationEnabledEnv === '1') &&
+    !!donationPromptPayNumber.trim() &&
+    !!donationPromptPayName.trim();
 
   const selectedMember = bill.members.find((m) => m.id === selectedMemberId) || bill.members[0];
 
@@ -117,6 +139,18 @@ export const GuestViewContainer: React.FC<GuestViewContainerProps> = ({
           </div>
 
           <div className="flex items-center space-x-2">
+            {isDonationEnabled && (
+              <button
+                type="button"
+                onClick={() => setIsDonationModalOpen(true)}
+                className="flex items-center space-x-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-800 hover:bg-amber-100 transition shadow-2xs cursor-pointer shrink-0"
+                title="สนับสนุนค่าน้ำชา/กาแฟและค่าเซิร์ฟเวอร์ให้ผู้พัฒนา"
+              >
+                <Coffee className="h-3.5 w-3.5 text-amber-600" />
+                <span>☕ สนับสนุนผู้พัฒนา</span>
+              </button>
+            )}
+
             <button
               type="button"
               onClick={() => setIsInfographicOpen(true)}
@@ -377,6 +411,16 @@ export const GuestViewContainer: React.FC<GuestViewContainerProps> = ({
         isOpen={isInfographicOpen}
         onClose={() => setIsInfographicOpen(false)}
       />
+
+      {/* Developer Donation Modal */}
+      {isDonationEnabled && (
+        <DeveloperDonationModal
+          isOpen={isDonationModalOpen}
+          onClose={() => setIsDonationModalOpen(false)}
+          promptPayNumber={donationPromptPayNumber}
+          promptPayName={donationPromptPayName}
+        />
+      )}
     </div>
   );
 };
