@@ -43,11 +43,18 @@ export async function fetchPartyBillFromSupabase(billId: string): Promise<PartyB
 
     if (error || !data) return null;
 
-    // Check if is_published is saved in top-level column or metadata
+    // Retrieve meta embedded in gangs or top-level columns
+    const embeddedMeta = (data.gangs as any)?.[0]?._meta || (data.members as any)?.[0]?._meta || {};
     const isPublished = data.is_published !== undefined 
       ? Boolean(data.is_published) 
-      : ((data.gangs as any)?.[0]?._meta?.isPublished ?? false);
-    const publishedAt = data.published_at || (data.gangs as any)?.[0]?._meta?.publishedAt;
+      : (embeddedMeta.isPublished ?? false);
+    const publishedAt = data.published_at || embeddedMeta.publishedAt;
+    const serviceChargeRate = data.service_charge_rate !== undefined
+      ? Number(data.service_charge_rate)
+      : (embeddedMeta.serviceChargeRate !== undefined ? Number(embeddedMeta.serviceChargeRate) : 0);
+    const depositAmount = data.deposit_amount !== undefined
+      ? Number(data.deposit_amount)
+      : (embeddedMeta.depositAmount !== undefined ? Number(embeddedMeta.depositAmount) : 0);
 
     return {
       id: data.id,
@@ -56,9 +63,9 @@ export async function fetchPartyBillFromSupabase(billId: string): Promise<PartyB
       location: data.location || '',
       vatMode: data.vat_mode || 'INCLUDE',
       vatRate: Number(data.vat_rate) || 0.07,
-      serviceChargeRate: Number(data.service_charge_rate) || 0,
+      serviceChargeRate: isNaN(serviceChargeRate) ? 0 : serviceChargeRate,
       sponsorBudget: Number(data.sponsor_budget) || 0,
-      depositAmount: Number(data.deposit_amount) || 0,
+      depositAmount: isNaN(depositAmount) ? 0 : depositAmount,
       promptPayNumber: data.promptpay_number || '',
       promptPayName: data.promptpay_name || '',
       payerMemberId: data.payer_member_id || (data.members || []).find((m: any) => m.isPayer)?.id,
@@ -96,62 +103,88 @@ export async function savePartyBillToSupabase(bill: PartyBill, hostId?: string):
       }
     }
 
-    const payload: any = {
+    // Embed meta properties into gangs jsonb for backward schema compatibility
+    const metaObj = {
+      isPublished: bill.isPublished ?? false,
+      publishedAt: bill.publishedAt || null,
+      serviceChargeRate: bill.serviceChargeRate || 0,
+      depositAmount: bill.depositAmount || 0,
+    };
+
+    let safeGangs: any[] = Array.isArray(bill.gangs) ? [...bill.gangs] : [];
+    if (safeGangs.length === 0) {
+      safeGangs = [{ id: '_meta_container', name: '', membersCount: 0, _meta: metaObj }];
+    } else {
+      safeGangs[0] = { ...safeGangs[0], _meta: metaObj };
+    }
+
+    const payload: Record<string, any> = {
       id: bill.id,
       host_id: validHostId,
       title: bill.title,
       date: bill.date,
       location: bill.location || '',
-      service_charge_rate: bill.serviceChargeRate || 0,
       vat_mode: bill.vatMode,
       vat_rate: bill.vatRate,
       sponsor_budget: bill.sponsorBudget || 0,
+      service_charge_rate: bill.serviceChargeRate || 0,
       deposit_amount: bill.depositAmount || 0,
       promptpay_number: bill.promptPayNumber,
       promptpay_name: bill.promptPayName || '',
       host_pin: bill.hostPin || '1234',
       is_published: bill.isPublished ?? false,
       published_at: bill.publishedAt || null,
-      gangs: bill.gangs,
+      gangs: safeGangs,
       members: bill.members,
       items: bill.items,
       updated_at: new Date().toISOString(),
     };
 
-    let { error } = await supabase
-      .from('party_bills')
-      .upsert(payload, { onConflict: 'id' });
-
-    if (error) {
-      if (error.message?.includes('deposit_amount') || error.code === '42703') {
-        delete payload.deposit_amount;
-      }
-      if (error.message?.includes('service_charge_rate') || error.code === '42703') {
-        delete payload.service_charge_rate;
-      }
-      // If error is because is_published column doesn't exist yet in Supabase table
-      if (error.message?.includes('is_published') || error.message?.includes('published_at') || error.code === '42703') {
-        delete payload.is_published;
-        delete payload.published_at;
-      }
-      const res = await supabase.from('party_bills').upsert(payload, { onConflict: 'id' });
-      error = res.error;
-
-      // Fallback: If host_id caused RLS / FK error, retry without host_id
-      if (error && validHostId && (error.code === '42501' || error.code === '23503')) {
-        const fallbackPayload = { ...payload, host_id: null };
-        const { error: retryErr } = await supabase
-          .from('party_bills')
-          .upsert(fallbackPayload, { onConflict: 'id' });
-        if (!retryErr) return true;
+    // Retry loop: If schema cache is missing optional columns (PGRST204 / 42703), strip missing column and retry
+    for (let attempt = 0; attempt < 6; attempt++) {
+      const { error } = await supabase.from('party_bills').upsert(payload, { onConflict: 'id' });
+      if (!error) {
+        return true;
       }
 
-      if (error) {
-        console.warn('Supabase upsert warning:', error.message || error);
-        return false;
+      const errMsg = error.message || '';
+      const isMissingColumn =
+        error.code === 'PGRST204' ||
+        error.code === '42703' ||
+        errMsg.includes('Could not find the') ||
+        errMsg.includes('column of');
+
+      if (isMissingColumn) {
+        // Extract missing column name from message e.g. "Could not find the 'service_charge_rate' column"
+        const match = errMsg.match(/['"]([a-zA-Z0-9_]+)['"] column/);
+        if (match && match[1] && payload[match[1]] !== undefined) {
+          delete payload[match[1]];
+          continue;
+        }
+
+        // Fallback strip all optional new columns
+        let removedAny = false;
+        const optionalColumns = ['service_charge_rate', 'deposit_amount', 'is_published', 'published_at'];
+        for (const col of optionalColumns) {
+          if (payload[col] !== undefined) {
+            delete payload[col];
+            removedAny = true;
+          }
+        }
+        if (removedAny) continue;
       }
+
+      // If host_id foreign key / RLS error, strip host_id and retry
+      if (payload.host_id && (error.code === '42501' || error.code === '23503' || errMsg.includes('foreign key') || errMsg.includes('host_id'))) {
+        payload.host_id = null;
+        continue;
+      }
+
+      console.warn(`Supabase upsert warning (attempt ${attempt + 1}):`, errMsg);
+      break;
     }
-    return true;
+
+    return false;
   } catch (err: any) {
     console.warn('Failed to save bill to Supabase:', err?.message || err);
     return false;
@@ -169,27 +202,41 @@ export async function fetchHostPartyBills(hostId: string): Promise<PartyBill[]> 
 
     if (error || !data) return [];
 
-    return data.map((d: any) => ({
-      id: d.id,
-      title: d.title,
-      date: d.date,
-      location: d.location || '',
-      serviceChargeRate: Number(d.service_charge_rate) || 0,
-      vatMode: d.vat_mode || 'INCLUDE',
-      vatRate: Number(d.vat_rate) || 0.07,
-      sponsorBudget: Number(d.sponsor_budget) || 0,
-      depositAmount: Number(d.deposit_amount) || 0,
-      promptPayNumber: d.promptpay_number || '',
-      promptPayName: d.promptpay_name || '',
-      hostPin: d.host_pin || '1234',
-      payerMemberId: d.payer_member_id || (d.members || []).find((m: any) => m.isPayer)?.id,
-      isPublished: d.is_published ?? false,
-      publishedAt: d.published_at,
-      gangs: d.gangs || [],
-      members: d.members || [],
-      items: d.items || [],
-      updatedAt: d.updated_at,
-    }));
+    return data.map((d: any) => {
+      const embeddedMeta = (d.gangs as any)?.[0]?._meta || (d.members as any)?.[0]?._meta || {};
+      const isPublished = d.is_published !== undefined 
+        ? Boolean(d.is_published) 
+        : (embeddedMeta.isPublished ?? false);
+      const publishedAt = d.published_at || embeddedMeta.publishedAt;
+      const serviceChargeRate = d.service_charge_rate !== undefined
+        ? Number(d.service_charge_rate)
+        : (embeddedMeta.serviceChargeRate !== undefined ? Number(embeddedMeta.serviceChargeRate) : 0);
+      const depositAmount = d.deposit_amount !== undefined
+        ? Number(d.deposit_amount)
+        : (embeddedMeta.depositAmount !== undefined ? Number(embeddedMeta.depositAmount) : 0);
+
+      return {
+        id: d.id,
+        title: d.title,
+        date: d.date,
+        location: d.location || '',
+        serviceChargeRate: isNaN(serviceChargeRate) ? 0 : serviceChargeRate,
+        vatMode: d.vat_mode || 'INCLUDE',
+        vatRate: Number(d.vat_rate) || 0.07,
+        sponsorBudget: Number(d.sponsor_budget) || 0,
+        depositAmount: isNaN(depositAmount) ? 0 : depositAmount,
+        promptPayNumber: d.promptpay_number || '',
+        promptPayName: d.promptpay_name || '',
+        hostPin: d.host_pin || '1234',
+        payerMemberId: d.payer_member_id || (d.members || []).find((m: any) => m.isPayer)?.id,
+        isPublished,
+        publishedAt,
+        gangs: d.gangs || [],
+        members: d.members || [],
+        items: d.items || [],
+        updatedAt: d.updated_at,
+      };
+    });
   } catch (err) {
     console.error('Failed to fetch host bills:', err);
     return [];

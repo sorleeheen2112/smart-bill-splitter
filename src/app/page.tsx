@@ -143,8 +143,8 @@ export default function Home() {
     setBills(updatedList);
     savePartyBillToStorage(newBill);
 
-    if (isSupabaseConfigured && hostUser) {
-      await savePartyBillToSupabase(newBill, hostUser.id);
+    if (isSupabaseConfigured) {
+      await savePartyBillToSupabase(newBill, hostUser?.id);
     }
   };
 
@@ -153,8 +153,8 @@ export default function Home() {
     setBills(updatedList);
     savePartyBillToStorage(newBill);
 
-    if (isSupabaseConfigured && hostUser) {
-      await savePartyBillToSupabase(newBill, hostUser.id);
+    if (isSupabaseConfigured) {
+      await savePartyBillToSupabase(newBill, hostUser?.id);
     }
   };
 

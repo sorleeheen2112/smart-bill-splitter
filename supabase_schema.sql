@@ -24,7 +24,9 @@ CREATE TABLE IF NOT EXISTS public.party_bills (
   location TEXT,
   vat_mode TEXT DEFAULT 'INCLUDE',
   vat_rate NUMERIC DEFAULT 0.07,
+  service_charge_rate NUMERIC DEFAULT 0,
   sponsor_budget NUMERIC DEFAULT 0,
+  deposit_amount NUMERIC DEFAULT 0,
   promptpay_number TEXT,
   promptpay_name TEXT,
   host_pin TEXT DEFAULT '1234',
@@ -38,6 +40,8 @@ CREATE TABLE IF NOT EXISTS public.party_bills (
 );
 
 -- Migration support if table already exists
+ALTER TABLE public.party_bills ADD COLUMN IF NOT EXISTS service_charge_rate NUMERIC DEFAULT 0;
+ALTER TABLE public.party_bills ADD COLUMN IF NOT EXISTS deposit_amount NUMERIC DEFAULT 0;
 ALTER TABLE public.party_bills ADD COLUMN IF NOT EXISTS is_published BOOLEAN DEFAULT FALSE;
 ALTER TABLE public.party_bills ADD COLUMN IF NOT EXISTS published_at TIMESTAMPTZ;
 
