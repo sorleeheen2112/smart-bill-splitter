@@ -69,6 +69,11 @@ export default function DynamicBillPage() {
   const [defaultAssignedTo, setDefaultAssignedTo] = useState('COMMON');
   const [viewingSlipMember, setViewingSlipMember] = useState<Member | null>(null);
 
+  const pendingSlipCount = useMemo(
+    () => bill?.members?.filter((m) => m.paymentStatus === 'SLIP_UPLOADED').length ?? 0,
+    [bill?.members]
+  );
+
   // Load bill data
   useEffect(() => {
     async function loadBill() {
@@ -186,10 +191,6 @@ export default function DynamicBillPage() {
   }
 
   const calculation = calculatePartyBill(bill);
-  const pendingSlipCount = useMemo(
-    () => bill?.members?.filter((m) => m.paymentStatus === 'SLIP_UPLOADED').length ?? 0,
-    [bill?.members]
-  );
   const isReadOnly = !isHostUnlocked && !hostUser;
 
   return (
