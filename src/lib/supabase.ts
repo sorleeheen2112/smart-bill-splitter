@@ -33,7 +33,7 @@ export interface HostProfile {
 
 // Database helper functions for Party Bills
 export async function fetchPartyBillFromSupabase(billId: string): Promise<PartyBill | null> {
-  if (!isSupabaseConfigured) return null;
+  if (!isSupabaseConfigured || !billId) return null;
   try {
     const { data, error } = await supabase
       .from('party_bills')
@@ -58,6 +58,7 @@ export async function fetchPartyBillFromSupabase(billId: string): Promise<PartyB
 
     return {
       id: data.id,
+      hostId: data.host_id || undefined,
       title: data.title,
       date: data.date,
       location: data.location || '',
@@ -88,18 +89,20 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 export async function savePartyBillToSupabase(bill: PartyBill, hostId?: string): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
   try {
-    // Check if there is an active authenticated session
+    // Check if there is an active authenticated session or valid host UUID
     let validHostId: string | null = null;
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user?.id && UUID_REGEX.test(session.user.id)) {
         validHostId = session.user.id;
-      } else if (hostId && UUID_REGEX.test(hostId)) {
-        validHostId = hostId;
       }
-    } catch {
+    } catch {}
+
+    if (!validHostId) {
       if (hostId && UUID_REGEX.test(hostId)) {
         validHostId = hostId;
+      } else if (bill.hostId && UUID_REGEX.test(bill.hostId)) {
+        validHostId = bill.hostId;
       }
     }
 
@@ -120,7 +123,6 @@ export async function savePartyBillToSupabase(bill: PartyBill, hostId?: string):
 
     const payload: Record<string, any> = {
       id: bill.id,
-      host_id: validHostId,
       title: bill.title,
       date: bill.date,
       location: bill.location || '',
@@ -139,6 +141,13 @@ export async function savePartyBillToSupabase(bill: PartyBill, hostId?: string):
       items: bill.items,
       updated_at: new Date().toISOString(),
     };
+
+    // CRITICAL: Only set host_id in payload if we have a valid host UUID.
+    // NEVER send host_id: null on upsert, because it would strip host_id from an existing host's bill
+    // when guests upload slips or non-host users update the bill!
+    if (validHostId) {
+      payload.host_id = validHostId;
+    }
 
     // Retry loop: If schema cache is missing optional columns (PGRST204 / 42703), strip missing column and retry
     for (let attempt = 0; attempt < 6; attempt++) {
@@ -174,9 +183,9 @@ export async function savePartyBillToSupabase(bill: PartyBill, hostId?: string):
         if (removedAny) continue;
       }
 
-      // If host_id foreign key / RLS error, strip host_id and retry
+      // If host_id foreign key / RLS error, delete host_id key and retry
       if (payload.host_id && (error.code === '42501' || error.code === '23503' || errMsg.includes('foreign key') || errMsg.includes('host_id'))) {
-        payload.host_id = null;
+        delete payload.host_id;
         continue;
       }
 
@@ -217,6 +226,7 @@ export async function fetchHostPartyBills(hostId: string): Promise<PartyBill[]> 
 
       return {
         id: d.id,
+        hostId: d.host_id || hostId,
         title: d.title,
         date: d.date,
         location: d.location || '',
@@ -255,5 +265,81 @@ export async function deletePartyBillFromSupabase(billId: string): Promise<boole
   } catch (err) {
     console.error('Failed to delete bill:', err);
     return false;
+  }
+}
+
+/**
+ * Real-time subscription to bill updates (new slip uploaded by guest, verified by host, etc.)
+ */
+export function subscribeToPartyBill(
+  billId: string,
+  onUpdate: (bill: PartyBill) => void
+): () => void {
+  if (!isSupabaseConfigured || !billId) {
+    return () => {};
+  }
+
+  try {
+    const channel = supabase
+      .channel(`party_bill_${billId}_${Date.now()}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'party_bills',
+          filter: `id=eq.${billId}`,
+        },
+        (payload) => {
+          if (payload.new && (payload.new as any).id === billId) {
+            const d = payload.new as any;
+            const embeddedMeta = (d.gangs as any)?.[0]?._meta || (d.members as any)?.[0]?._meta || {};
+            const isPublished = d.is_published !== undefined 
+              ? Boolean(d.is_published) 
+              : (embeddedMeta.isPublished ?? false);
+            const publishedAt = d.published_at || embeddedMeta.publishedAt;
+            const serviceChargeRate = d.service_charge_rate !== undefined
+              ? Number(d.service_charge_rate)
+              : (embeddedMeta.serviceChargeRate !== undefined ? Number(embeddedMeta.serviceChargeRate) : 0);
+            const depositAmount = d.deposit_amount !== undefined
+              ? Number(d.deposit_amount)
+              : (embeddedMeta.depositAmount !== undefined ? Number(embeddedMeta.depositAmount) : 0);
+
+            const updatedBill: PartyBill = {
+              id: d.id,
+              hostId: d.host_id || undefined,
+              title: d.title,
+              date: d.date,
+              location: d.location || '',
+              vatMode: d.vat_mode || 'INCLUDE',
+              vatRate: Number(d.vat_rate) || 0.07,
+              serviceChargeRate: isNaN(serviceChargeRate) ? 0 : serviceChargeRate,
+              sponsorBudget: Number(d.sponsor_budget) || 0,
+              depositAmount: isNaN(depositAmount) ? 0 : depositAmount,
+              promptPayNumber: d.promptpay_number || '',
+              promptPayName: d.promptpay_name || '',
+              payerMemberId: d.payer_member_id || (d.members || []).find((m: any) => m.isPayer)?.id,
+              hostPin: d.host_pin || '1234',
+              isPublished,
+              publishedAt,
+              gangs: d.gangs || [],
+              members: d.members || [],
+              items: d.items || [],
+              updatedAt: d.updated_at,
+            };
+            onUpdate(updatedBill);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      try {
+        supabase.removeChannel(channel);
+      } catch {}
+    };
+  } catch (e) {
+    console.warn('Realtime subscription error:', e);
+    return () => {};
   }
 }

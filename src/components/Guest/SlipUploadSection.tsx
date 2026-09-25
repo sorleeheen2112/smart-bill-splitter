@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload, CheckCircle2, Camera, Clock } from 'lucide-react';
+import { Upload, CheckCircle2, Camera, Clock, Loader2 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { Member } from '@/lib/types';
+import { compressSlipImage } from '@/lib/imageUtils';
 
 interface SlipUploadSectionProps {
   member: Member;
@@ -26,17 +27,27 @@ export const SlipUploadSection: React.FC<SlipUploadSectionProps> = ({
     }
   }, [member.id, member.slipUrl]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const url = event.target?.result as string;
-      setPreview(url);
-      submitSlip(url);
-    };
-    reader.readAsDataURL(file);
+    setIsUploading(true);
+    try {
+      // Compress and downscale slip image to clean ~80KB JPEG to avoid storage quota and payload limits
+      const compressedUrl = await compressSlipImage(file, 1000, 1200, 0.75);
+      setPreview(compressedUrl);
+      submitSlip(compressedUrl);
+    } catch (err) {
+      console.error('Failed to compress slip:', err);
+      // Fallback
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const url = (event.target?.result as string) || '';
+        setPreview(url);
+        submitSlip(url);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const submitSlip = (slipDataUrl: string) => {
@@ -51,7 +62,7 @@ export const SlipUploadSection: React.FC<SlipUploadSectionProps> = ({
           origin: { y: 0.7 },
         });
       } catch (e) {}
-    }, 400);
+    }, 300);
   };
 
   return (
@@ -75,7 +86,12 @@ export const SlipUploadSection: React.FC<SlipUploadSectionProps> = ({
         ) : null}
       </div>
 
-      {preview ? (
+      {isUploading ? (
+        <div className="flex flex-col items-center justify-center rounded-xl border border-slate-200 bg-slate-50 py-10 text-center space-y-2">
+          <Loader2 className="h-7 w-7 animate-spin text-emerald-600" />
+          <p className="text-xs font-bold text-slate-700">กำลังประมวลผลและแนบสลิป...</p>
+        </div>
+      ) : preview ? (
         <div className="space-y-3">
           <div className="flex flex-col items-center justify-center rounded-xl border border-slate-200 bg-slate-50 p-2">
             <img

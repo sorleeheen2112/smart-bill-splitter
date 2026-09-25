@@ -1,30 +1,57 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
-import { Sparkles, ArrowLeft } from 'lucide-react';
+import { useParams, useSearchParams } from 'next/navigation';
+import { Sparkles, ArrowLeft, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { PartyBill, Member } from '@/lib/types';
 import { calculatePartyBill } from '@/lib/calculator';
 import { loadPartyBillFromStorage, savePartyBillToStorage } from '@/lib/storage';
+import { fetchPartyBillFromSupabase, savePartyBillToSupabase, isSupabaseConfigured } from '@/lib/supabase';
 import { GuestBillCard } from '@/components/Guest/GuestBillCard';
 import { PromptPayQRCode } from '@/components/Guest/PromptPayQRCode';
 import { SlipUploadSection } from '@/components/Guest/SlipUploadSection';
 
 export default function GuestDirectPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const memberId = params?.memberId as string;
+  const billId = searchParams.get('billId');
+
   const [bill, setBill] = useState<PartyBill | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const loaded = loadPartyBillFromStorage();
-    setBill(loaded);
-  }, []);
+    async function load() {
+      setIsLoading(true);
+      let loaded: PartyBill | null = null;
+      if (billId && isSupabaseConfigured) {
+        loaded = await fetchPartyBillFromSupabase(billId);
+      }
+      if (!loaded) {
+        loaded = loadPartyBillFromStorage();
+      }
+      setBill(loaded);
+      setIsLoading(false);
+    }
+    load();
+  }, [billId]);
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-400">
+        <div className="flex items-center space-x-2">
+          <Loader2 className="h-5 w-5 animate-spin text-teal-400" />
+          <span>กำลังโหลดข้อมูลบิล...</span>
+        </div>
+      </div>
+    );
+  }
 
   if (!bill) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-400">
-        กำลังโหลดข้อมูลบิล...
+        ไม่พบบิลในระบบ
       </div>
     );
   }
@@ -38,7 +65,7 @@ export default function GuestDirectPage() {
         <h2 className="text-lg font-bold text-white mb-2">ไม่พบรายชื่อในระบบ</h2>
         <Link
           href="/"
-          className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white"
+          className="rounded-xl bg-teal-700 px-4 py-2 text-xs font-semibold text-white"
         >
           กลับหน้าหลัก
         </Link>
@@ -48,7 +75,7 @@ export default function GuestDirectPage() {
 
   const breakdown = calculation.membersBreakdown[member.id];
 
-  const handleUploadSlip = (mId: string, slipUrl: string) => {
+  const handleUploadSlip = async (mId: string, slipUrl: string) => {
     const updated = {
       ...bill,
       members: bill.members.map((m) =>
@@ -64,6 +91,9 @@ export default function GuestDirectPage() {
     };
     setBill(updated);
     savePartyBillToStorage(updated);
+    if (isSupabaseConfigured) {
+      await savePartyBillToSupabase(updated, bill.hostId);
+    }
   };
 
   return (

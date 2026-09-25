@@ -31,6 +31,7 @@ import {
   fetchHostPartyBills,
   savePartyBillToSupabase,
   deletePartyBillFromSupabase,
+  subscribeToPartyBill,
   isSupabaseConfigured,
 } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
@@ -87,36 +88,51 @@ export default function Home() {
           loadedList = remoteBills;
         }
 
-        // If host has no bills yet in database, create a fresh first bill
+        // If host has no bills in remote database, check if local storage had a bill to adopt
         if (loadedList.length === 0) {
-          const freshBill: PartyBill = {
-            id: `party-${Date.now()}`,
-            title: `ปาร์ตี้ของ ${hostUser.firstName}`,
-            promptPayNumber: hostUser.defaultPromptPay || '',
-            promptPayName: `${hostUser.firstName} ${hostUser.lastName || ''}`.trim(),
-            date: new Date().toISOString().split('T')[0],
-            vatMode: 'INCLUDE',
-            vatRate: 0.07,
-            serviceChargeRate: 0,
-            sponsorBudget: 0,
-            hostPin: '1234',
-            isPublished: false,
-            gangs: [],
-            members: [
-              {
-                id: `m-host-${Date.now()}`,
-                name: hostUser.firstName || 'Host (ฉัน)',
-                gangIds: [],
-                isFree: false,
-                paymentStatus: 'PENDING',
-                note: 'ผู้จัดการบิล',
-              },
-            ],
-            items: [],
-          };
-          loadedList = [freshBill];
-          if (isSupabaseConfigured) {
-            await savePartyBillToSupabase(freshBill, hostUser.id);
+          const local = loadPartyBillFromStorage();
+          if (local && (local.items.length > 0 || local.members.length > 1) && local.id !== 'sample-bill-1') {
+            const adoptedBill: PartyBill = {
+              ...local,
+              hostId: hostUser.id,
+              promptPayNumber: local.promptPayNumber || hostUser.defaultPromptPay || '',
+              promptPayName: local.promptPayName || `${hostUser.firstName} ${hostUser.lastName || ''}`.trim(),
+            };
+            loadedList = [adoptedBill];
+            if (isSupabaseConfigured) {
+              await savePartyBillToSupabase(adoptedBill, hostUser.id);
+            }
+          } else {
+            const freshBill: PartyBill = {
+              id: `party-${Date.now()}`,
+              hostId: hostUser.id,
+              title: `ปาร์ตี้ของ ${hostUser.firstName}`,
+              promptPayNumber: hostUser.defaultPromptPay || '',
+              promptPayName: `${hostUser.firstName} ${hostUser.lastName || ''}`.trim(),
+              date: new Date().toISOString().split('T')[0],
+              vatMode: 'INCLUDE',
+              vatRate: 0.07,
+              serviceChargeRate: 0,
+              sponsorBudget: 0,
+              hostPin: '1234',
+              isPublished: false,
+              gangs: [],
+              members: [
+                {
+                  id: `m-host-${Date.now()}`,
+                  name: hostUser.firstName || 'Host (ฉัน)',
+                  gangIds: [],
+                  isFree: false,
+                  paymentStatus: 'PENDING',
+                  note: 'ผู้จัดการบิล',
+                },
+              ],
+              items: [],
+            };
+            loadedList = [freshBill];
+            if (isSupabaseConfigured) {
+              await savePartyBillToSupabase(freshBill, hostUser.id);
+            }
           }
         }
 
@@ -135,38 +151,65 @@ export default function Home() {
     }
   }, [hostUser, isAuthLoading]);
 
+  // Real-time synchronization: listen for guest slip uploads or remote updates for active bill
+  useEffect(() => {
+    if (!activeBillId || !isSupabaseConfigured) return;
+
+    const unsubscribe = subscribeToPartyBill(activeBillId, (remoteBill) => {
+      setBills((prevBills) =>
+        prevBills.map((b) =>
+          b.id === remoteBill.id
+            ? {
+                ...b,
+                ...remoteBill,
+                hostId: remoteBill.hostId || b.hostId || hostUser?.id,
+              }
+            : b
+        )
+      );
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [activeBillId, hostUser?.id]);
+
   const activeBill = bills.find((b) => b.id === activeBillId) || bills[0] || initialSamplePartyBill;
 
   const handleUpdateActiveBill = async (updated: Partial<PartyBill>) => {
-    const newBill = { ...activeBill, ...updated };
+    const hostIdToPreserve = hostUser?.id || activeBill.hostId;
+    const newBill = { ...activeBill, ...updated, hostId: hostIdToPreserve };
     const updatedList = bills.map((b) => (b.id === activeBill.id ? newBill : b));
     setBills(updatedList);
     savePartyBillToStorage(newBill);
 
     if (isSupabaseConfigured) {
-      await savePartyBillToSupabase(newBill, hostUser?.id);
+      await savePartyBillToSupabase(newBill, hostIdToPreserve);
     }
   };
 
   const handleFullBillUpdate = async (newBill: PartyBill) => {
-    const updatedList = bills.map((b) => (b.id === newBill.id ? newBill : b));
+    const hostIdToPreserve = hostUser?.id || newBill.hostId || activeBill.hostId;
+    const finalBill = { ...newBill, hostId: hostIdToPreserve };
+    const updatedList = bills.map((b) => (b.id === finalBill.id ? finalBill : b));
     setBills(updatedList);
-    savePartyBillToStorage(newBill);
+    savePartyBillToStorage(finalBill);
 
     if (isSupabaseConfigured) {
-      await savePartyBillToSupabase(newBill, hostUser?.id);
+      await savePartyBillToSupabase(finalBill, hostIdToPreserve);
     }
   };
 
   const handleCreateNewBill = async (newBill: PartyBill) => {
-    const updatedList = [newBill, ...bills];
+    const finalBill = { ...newBill, hostId: hostUser?.id || newBill.hostId };
+    const updatedList = [finalBill, ...bills];
     setBills(updatedList);
-    setActiveBillId(newBill.id);
+    setActiveBillId(finalBill.id);
     setActiveScreen('bill-editor');
-    savePartyBillToStorage(newBill);
+    savePartyBillToStorage(finalBill);
 
     if (isSupabaseConfigured && hostUser) {
-      await savePartyBillToSupabase(newBill, hostUser.id);
+      await savePartyBillToSupabase(finalBill, hostUser.id);
     }
   };
 

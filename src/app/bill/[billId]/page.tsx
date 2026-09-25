@@ -25,7 +25,7 @@ import Link from 'next/link';
 import { PartyBill, BillItem, Member } from '@/lib/types';
 import { calculatePartyBill } from '@/lib/calculator';
 import { getQuickShareText } from '@/lib/shareUtils';
-import { fetchPartyBillFromSupabase, savePartyBillToSupabase, isSupabaseConfigured } from '@/lib/supabase';
+import { fetchPartyBillFromSupabase, savePartyBillToSupabase, subscribeToPartyBill, isSupabaseConfigured } from '@/lib/supabase';
 import { loadPartyBillFromStorage, savePartyBillToStorage } from '@/lib/storage';
 import { useAuth } from '@/context/AuthContext';
 import { HeaderSettings } from '@/components/HeaderSettings';
@@ -101,13 +101,34 @@ export default function DynamicBillPage() {
     }
   }, [billId, hostUser]);
 
+  // Real-time synchronization: listen for guest slip uploads or host verification
+  useEffect(() => {
+    if (!billId || !isSupabaseConfigured) return;
+
+    const unsubscribe = subscribeToPartyBill(billId, (remoteBill) => {
+      setBill((prev) => {
+        if (!prev) return remoteBill;
+        return {
+          ...prev,
+          ...remoteBill,
+          hostId: remoteBill.hostId || prev.hostId,
+        };
+      });
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [billId]);
+
   const handleUpdateBill = async (updated: Partial<PartyBill>) => {
     if (!bill) return;
-    const newBill = { ...bill, ...updated };
+    const hostIdToPreserve = bill.hostId || hostUser?.id;
+    const newBill = { ...bill, ...updated, hostId: hostIdToPreserve };
     setBill(newBill);
     savePartyBillToStorage(newBill);
     if (isSupabaseConfigured) {
-      await savePartyBillToSupabase(newBill, hostUser?.id);
+      await savePartyBillToSupabase(newBill, hostIdToPreserve);
     }
   };
 

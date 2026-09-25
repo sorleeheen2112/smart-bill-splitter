@@ -29,6 +29,7 @@ export interface BillItem {
 
 export interface PartyBill {
   id: string;
+  hostId?: string; // Host UUID who created/owns this party bill
   title: string;
   date: string;
   location?: string;
