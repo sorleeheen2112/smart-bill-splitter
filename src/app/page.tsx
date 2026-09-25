@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Camera,
   Plus,
@@ -175,6 +175,11 @@ export default function Home() {
   }, [activeBillId, hostUser?.id]);
 
   const activeBill = bills.find((b) => b.id === activeBillId) || bills[0] || initialSamplePartyBill;
+
+  const pendingSlipCount = useMemo(
+    () => activeBill?.members?.filter((m) => m.paymentStatus === 'SLIP_UPLOADED').length ?? 0,
+    [activeBill?.members]
+  );
 
   const handleUpdateActiveBill = async (updated: Partial<PartyBill>) => {
     const hostIdToPreserve = hostUser?.id || activeBill.hostId;
@@ -555,6 +560,11 @@ export default function Home() {
                     >
                       <FileSpreadsheet className="h-4 w-4" />
                       <span>ตารางสรุปยอด & สลิป</span>
+                      {pendingSlipCount > 0 && (
+                        <span className="inline-flex items-center justify-center min-w-[1.25rem] h-4 rounded-full bg-rose-500 px-1 text-[10px] font-extrabold text-white shadow-xs animate-pulse">
+                          {pendingSlipCount}
+                        </span>
+                      )}
                     </button>
                   </div>
 

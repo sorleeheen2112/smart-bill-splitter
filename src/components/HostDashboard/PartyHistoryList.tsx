@@ -82,6 +82,7 @@ export const PartyHistoryList: React.FC<PartyHistoryListProps> = ({
           const payingCount = payingMembers.length;
           const freeCount = bill.members.filter((m) => m.isFree).length;
           const verifiedCount = payingMembers.filter((m) => m.paymentStatus === 'VERIFIED').length;
+          const pendingSlipCount = payingMembers.filter((m) => m.paymentStatus === 'SLIP_UPLOADED').length;
           const isComplete = verifiedCount === payingCount && payingCount > 0;
           const progressPercent = payingCount > 0 ? Math.round((verifiedCount / payingCount) * 100) : 100;
 
@@ -101,22 +102,30 @@ export const PartyHistoryList: React.FC<PartyHistoryListProps> = ({
                   <h3 className="text-sm font-bold text-slate-900 line-clamp-1 group-hover:text-teal-800 transition">
                     {bill.title || 'ปาร์ตี้ไม่มีชื่อ'}
                   </h3>
-                  {!bill.isPublished ? (
-                    <span className="shrink-0 inline-flex items-center space-x-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-800 border border-amber-300">
-                      <FileEdit className="h-3 w-3 text-amber-600" />
-                      <span>กำลังจัดบิล</span>
-                    </span>
-                  ) : isComplete ? (
-                    <span className="shrink-0 inline-flex items-center space-x-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800 border border-emerald-300">
-                      <CheckCircle2 className="h-3 w-3 text-emerald-600" />
-                      <span>ครบแล้ว</span>
-                    </span>
-                  ) : (
-                    <span className="shrink-0 inline-flex items-center space-x-1 rounded-full bg-teal-50 px-2 py-0.5 text-[10px] font-bold text-teal-800 border border-teal-300">
-                      <Clock className="h-3 w-3 text-teal-600" />
-                      <span>กำลังเก็บเงิน</span>
-                    </span>
-                  )}
+                  <div className="flex items-center space-x-1.5 shrink-0">
+                    {pendingSlipCount > 0 && (
+                      <span className="inline-flex items-center space-x-1 rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-700 border border-rose-300 animate-pulse">
+                        <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
+                        <span>รอตรวจ {pendingSlipCount}</span>
+                      </span>
+                    )}
+                    {!bill.isPublished ? (
+                      <span className="shrink-0 inline-flex items-center space-x-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-800 border border-amber-300">
+                        <FileEdit className="h-3 w-3 text-amber-600" />
+                        <span>กำลังจัดบิล</span>
+                      </span>
+                    ) : isComplete ? (
+                      <span className="shrink-0 inline-flex items-center space-x-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800 border border-emerald-300">
+                        <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                        <span>ครบแล้ว</span>
+                      </span>
+                    ) : (
+                      <span className="shrink-0 inline-flex items-center space-x-1 rounded-full bg-teal-50 px-2 py-0.5 text-[10px] font-bold text-teal-800 border border-teal-300">
+                        <Clock className="h-3 w-3 text-teal-600" />
+                        <span>กำลังเก็บเงิน</span>
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {/* Date & Location */}
