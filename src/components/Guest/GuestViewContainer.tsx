@@ -9,6 +9,7 @@ import { SlipUploadSection } from './SlipUploadSection';
 import { GuestInfographicModal } from './GuestInfographicModal';
 import { DeveloperDonationModal } from './DeveloperDonationModal';
 import { formatTHB } from '@/lib/calculator';
+import { getQuickShareText } from '@/lib/shareUtils';
 
 interface GuestViewContainerProps {
   bill: PartyBill;
@@ -72,8 +73,8 @@ export const GuestViewContainer: React.FC<GuestViewContainerProps> = ({
 
   const handleCopyPersonalLink = () => {
     if (typeof window !== 'undefined') {
-      const url = `${window.location.origin}/bill/${bill.id}`;
-      navigator.clipboard.writeText(url);
+      const shareText = getQuickShareText({ title: bill.title, billId: bill.id });
+      navigator.clipboard.writeText(shareText);
       setCopiedLink(true);
       setTimeout(() => setCopiedLink(false), 2000);
     }

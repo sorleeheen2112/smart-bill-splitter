@@ -24,6 +24,7 @@ import {
 import Link from 'next/link';
 import { PartyBill, BillItem, Member } from '@/lib/types';
 import { calculatePartyBill } from '@/lib/calculator';
+import { getQuickShareText } from '@/lib/shareUtils';
 import { fetchPartyBillFromSupabase, savePartyBillToSupabase, isSupabaseConfigured } from '@/lib/supabase';
 import { loadPartyBillFromStorage, savePartyBillToStorage } from '@/lib/storage';
 import { useAuth } from '@/context/AuthContext';
@@ -291,12 +292,14 @@ export default function DynamicBillPage() {
                           type="button"
                           onClick={() => {
                             if (typeof window !== 'undefined' && bill.id) {
-                              navigator.clipboard.writeText(`${window.location.origin}/bill/${bill.id}`);
+                              const shareText = getQuickShareText({ title: bill.title, billId: bill.id });
+                              navigator.clipboard.writeText(shareText);
                               setCopiedLink(true);
                               setTimeout(() => setCopiedLink(false), 2000);
                             }
                           }}
                           className="flex items-center justify-center space-x-1.5 rounded-xl border border-amber-300 bg-white px-3.5 py-2 text-xs font-bold text-amber-900 hover:bg-amber-100 shadow-2xs transition cursor-pointer"
+                          title="คัดลอกลิงก์และข้อความสั้นสำหรับส่งให้เพื่อน"
                         >
                           {copiedLink ? (
                             <>
@@ -372,7 +375,8 @@ export default function DynamicBillPage() {
                         type="button"
                         onClick={() => {
                           if (typeof window !== 'undefined' && bill.id) {
-                            navigator.clipboard.writeText(`${window.location.origin}/bill/${bill.id}`);
+                            const shareText = getQuickShareText({ title: bill.title, billId: bill.id });
+                            navigator.clipboard.writeText(shareText);
                             setCopiedLink(true);
                             setTimeout(() => setCopiedLink(false), 2000);
                           }

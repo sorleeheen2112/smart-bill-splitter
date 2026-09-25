@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { PartyBill, BillItem, Member } from '@/lib/types';
 import { calculatePartyBill } from '@/lib/calculator';
+import { getQuickShareText } from '@/lib/shareUtils';
 import {
   loadPartyBillFromStorage,
   savePartyBillToStorage,
@@ -360,23 +361,24 @@ export default function Home() {
                             type="button"
                             onClick={() => {
                               if (typeof window !== 'undefined' && activeBill.id) {
-                                navigator.clipboard.writeText(`${window.location.origin}/bill/${activeBill.id}`);
+                                const shareText = getQuickShareText({ title: activeBill.title, billId: activeBill.id });
+                                navigator.clipboard.writeText(shareText);
                                 setCopiedGuestLink(true);
                                 setTimeout(() => setCopiedGuestLink(false), 2000);
                               }
                             }}
                             className="flex items-center justify-center space-x-1.5 rounded-xl border border-amber-300 bg-white px-3.5 py-2 text-xs font-bold text-amber-900 hover:bg-amber-100 shadow-2xs transition cursor-pointer"
-                            title="คัดลอกลิงก์สำหรับเปิดดูบิลนี้"
+                            title="คัดลอกลิงก์และข้อความสั้นสำหรับส่งให้เพื่อน"
                           >
                             {copiedGuestLink ? (
                               <>
                                 <Check className="h-3.5 w-3.5 text-emerald-600" />
-                                <span className="text-emerald-700">คัดลอกลิงก์แล้ว!</span>
+                                <span className="text-emerald-700">คัดลอกแล้ว!</span>
                               </>
                             ) : (
                               <>
                                 <Link2 className="h-3.5 w-3.5 text-amber-700" />
-                                <span>คัดลอกลิงก์เตรียมไว้</span>
+                                <span>คัดลอกลิงก์</span>
                               </>
                             )}
                           </button>
@@ -444,7 +446,8 @@ export default function Home() {
                           type="button"
                           onClick={() => {
                             if (typeof window !== 'undefined' && activeBill.id) {
-                              navigator.clipboard.writeText(`${window.location.origin}/bill/${activeBill.id}`);
+                              const shareText = getQuickShareText({ title: activeBill.title, billId: activeBill.id });
+                              navigator.clipboard.writeText(shareText);
                               setCopiedGuestLink(true);
                               setTimeout(() => setCopiedGuestLink(false), 2000);
                             }

@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { Copy, Check, X, MessageSquare } from 'lucide-react';
 import { PartyBill, CalculationResult } from '@/lib/types';
 import { formatTHB } from '@/lib/calculator';
+import { getQuickShareText } from '@/lib/shareUtils';
 
 interface LineShareModalProps {
   isOpen: boolean;
@@ -80,7 +81,8 @@ export const LineShareModal: React.FC<LineShareModalProps> = ({
 
   const handleCopyUrlOnly = () => {
     if (!billUrl) return;
-    navigator.clipboard.writeText(billUrl);
+    const quickText = getQuickShareText({ title: bill.title, billId: bill.id });
+    navigator.clipboard.writeText(quickText);
     setCopiedUrl(true);
     setTimeout(() => setCopiedUrl(false), 2500);
   };
@@ -125,7 +127,7 @@ export const LineShareModal: React.FC<LineShareModalProps> = ({
               ) : (
                 <>
                   <Copy className="h-4 w-4 text-slate-500" />
-                  <span>คัดลอกเฉพาะลิงก์เว็บ</span>
+                  <span>คัดลอกลิงก์พร้อมข้อความสั้น</span>
                 </>
               )}
             </button>

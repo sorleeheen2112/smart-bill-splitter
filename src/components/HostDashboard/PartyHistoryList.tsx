@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { PartyBill } from '@/lib/types';
 import { calculatePartyBill, formatTHB } from '@/lib/calculator';
+import { getQuickShareText } from '@/lib/shareUtils';
 import { useAuth } from '@/context/AuthContext';
 
 interface PartyHistoryListProps {
@@ -35,12 +36,12 @@ export const PartyHistoryList: React.FC<PartyHistoryListProps> = ({
   const { hostUser } = useAuth();
   const [copiedBillId, setCopiedBillId] = useState<string | null>(null);
 
-  const handleCopyLink = (e: React.MouseEvent, billId: string) => {
+  const handleCopyLink = (e: React.MouseEvent, bill: PartyBill) => {
     e.stopPropagation();
     if (typeof window !== 'undefined') {
-      const url = `${window.location.origin}/bill/${billId}`;
-      navigator.clipboard.writeText(url);
-      setCopiedBillId(billId);
+      const shareText = getQuickShareText({ title: bill.title, billId: bill.id });
+      navigator.clipboard.writeText(shareText);
+      setCopiedBillId(bill.id);
       setTimeout(() => setCopiedBillId(null), 2000);
     }
   };
@@ -182,7 +183,7 @@ export const PartyHistoryList: React.FC<PartyHistoryListProps> = ({
               <div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-3">
                 <button
                   type="button"
-                  onClick={(e) => handleCopyLink(e, bill.id)}
+                  onClick={(e) => handleCopyLink(e, bill)}
                   className="flex items-center space-x-1 rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-200 transition border border-slate-200"
                   title="คัดลอกลิงก์ส่งให้เพื่อนใน LINE"
                 >
