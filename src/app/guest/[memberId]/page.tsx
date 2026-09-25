@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { PartyBill, Member } from '@/lib/types';
 import { calculatePartyBill } from '@/lib/calculator';
 import { loadPartyBillFromStorage, savePartyBillToStorage } from '@/lib/storage';
-import { fetchPartyBillFromSupabase, savePartyBillToSupabase, isSupabaseConfigured } from '@/lib/supabase';
+import { fetchPartyBillFromSupabase, updateMemberSlipInSupabase, isSupabaseConfigured } from '@/lib/supabase';
 import { GuestBillCard } from '@/components/Guest/GuestBillCard';
 import { PromptPayQRCode } from '@/components/Guest/PromptPayQRCode';
 import { SlipUploadSection } from '@/components/Guest/SlipUploadSection';
@@ -76,6 +76,10 @@ export default function GuestDirectPage() {
   const breakdown = calculation.membersBreakdown[member.id];
 
   const handleUploadSlip = async (mId: string, slipUrl: string) => {
+    const now = new Date().toISOString();
+    if (billId && isSupabaseConfigured) {
+      await updateMemberSlipInSupabase(billId, mId, slipUrl, 'SLIP_UPLOADED', now);
+    }
     const updated = {
       ...bill,
       members: bill.members.map((m) =>
@@ -83,7 +87,7 @@ export default function GuestDirectPage() {
           ? {
               ...m,
               slipUrl,
-              slipUploadedAt: new Date().toISOString(),
+              slipUploadedAt: now,
               paymentStatus: 'SLIP_UPLOADED' as const,
             }
           : m
@@ -91,9 +95,6 @@ export default function GuestDirectPage() {
     };
     setBill(updated);
     savePartyBillToStorage(updated);
-    if (isSupabaseConfigured) {
-      await savePartyBillToSupabase(updated, bill.hostId);
-    }
   };
 
   return (

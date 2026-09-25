@@ -10,6 +10,7 @@ import { GuestInfographicModal } from './GuestInfographicModal';
 import { DeveloperDonationModal } from './DeveloperDonationModal';
 import { formatTHB } from '@/lib/calculator';
 import { getQuickShareText } from '@/lib/shareUtils';
+import { updateMemberSlipInSupabase } from '@/lib/supabase';
 
 interface GuestViewContainerProps {
   bill: PartyBill;
@@ -57,13 +58,18 @@ export const GuestViewContainer: React.FC<GuestViewContainerProps> = ({
 
   const selectedMember = bill.members.find((m) => m.id === selectedMemberId) || bill.members[0];
 
-  const handleUploadSlip = (memberId: string, slipUrl: string) => {
+  const handleUploadSlip = async (memberId: string, slipUrl: string) => {
+    const now = new Date().toISOString();
+    // 1. Atomic update in Database (separate row/table - no collision)
+    await updateMemberSlipInSupabase(bill.id, memberId, slipUrl, 'SLIP_UPLOADED', now);
+
+    // 2. Update local state
     const updated = bill.members.map((m) =>
       m.id === memberId
         ? {
             ...m,
             slipUrl,
-            slipUploadedAt: new Date().toISOString(),
+            slipUploadedAt: now,
             paymentStatus: 'SLIP_UPLOADED' as const,
           }
         : m

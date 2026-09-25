@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { PartyBill } from './types';
+import { PartyBill, Member } from './types';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
@@ -31,6 +31,153 @@ export interface HostProfile {
   defaultPromptPay?: string;
 }
 
+/**
+ * Helper to map DB row from party_members to application Member model
+ */
+export function mapDbMemberToApp(row: any): Member {
+  return {
+    id: row.id,
+    name: row.name || 'ไม่ระบุชื่อ',
+    gangIds: Array.isArray(row.gang_ids) ? row.gang_ids : [],
+    isFree: Boolean(row.is_free),
+    isPayer: Boolean(row.is_payer),
+    paymentStatus: (row.payment_status || 'PENDING') as Member['paymentStatus'],
+    slipUrl: row.slip_url || undefined,
+    slipUploadedAt: row.slip_uploaded_at || undefined,
+    paidAmount: row.paid_amount ? Number(row.paid_amount) : undefined,
+    note: row.note || undefined,
+  };
+}
+
+/**
+ * Fetch all members for a bill directly from party_members table
+ */
+export async function fetchPartyMembersFromSupabase(billId: string): Promise<Member[]> {
+  if (!isSupabaseConfigured || !billId) return [];
+  try {
+    const { data, error } = await supabase
+      .from('party_members')
+      .select('*')
+      .eq('bill_id', billId)
+      .order('created_at', { ascending: true });
+
+    if (error || !data || data.length === 0) return [];
+    return data.map(mapDbMemberToApp);
+  } catch (err) {
+    console.warn('Failed to fetch party_members from Supabase:', err);
+    return [];
+  }
+}
+
+/**
+ * Save/Upsert members in party_members table
+ */
+export async function savePartyMembersToSupabase(billId: string, members: Member[]): Promise<boolean> {
+  if (!isSupabaseConfigured || !billId || !Array.isArray(members) || members.length === 0) {
+    return false;
+  }
+  try {
+    const rows = members.map((m) => ({
+      id: m.id,
+      bill_id: billId,
+      name: m.name,
+      gang_ids: m.gangIds || [],
+      is_free: Boolean(m.isFree),
+      is_payer: Boolean(m.isPayer),
+      payment_status: m.paymentStatus || 'PENDING',
+      slip_url: m.slipUrl || null,
+      slip_uploaded_at: m.slipUploadedAt || null,
+      paid_amount: m.paidAmount || 0,
+      note: m.note || null,
+      updated_at: new Date().toISOString(),
+    }));
+
+    const { error } = await supabase
+      .from('party_members')
+      .upsert(rows, { onConflict: 'id' });
+
+    if (error) {
+      // If table doesn't exist yet, silently fail back to JSONB
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.warn('Failed to upsert party_members:', err);
+    return false;
+  }
+}
+
+/**
+ * ⚡ Atomic update for a member's slip (Prevents Race Condition when multiple guests upload at once)
+ */
+export async function updateMemberSlipInSupabase(
+  billId: string,
+  memberId: string,
+  slipUrl: string,
+  paymentStatus: Member['paymentStatus'] = 'SLIP_UPLOADED',
+  slipUploadedAt: string = new Date().toISOString()
+): Promise<boolean> {
+  if (!isSupabaseConfigured || !billId || !memberId) return false;
+
+  try {
+    // 1. Try calling the PostgreSQL RPC atomic function if available
+    try {
+      const { data, error } = await supabase.rpc('update_member_slip', {
+        p_bill_id: billId,
+        p_member_id: memberId,
+        p_slip_url: slipUrl,
+        p_uploaded_at: slipUploadedAt,
+      });
+      if (!error && data) {
+        return true;
+      }
+    } catch {}
+
+    // 2. Direct atomic update to party_members row
+    const { error: memberError } = await supabase
+      .from('party_members')
+      .update({
+        slip_url: slipUrl,
+        payment_status: paymentStatus,
+        slip_uploaded_at: slipUploadedAt,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', memberId)
+      .eq('bill_id', billId);
+
+    // 3. Fallback sync to party_bills JSONB column
+    try {
+      const { data: billData } = await supabase
+        .from('party_bills')
+        .select('members')
+        .eq('id', billId)
+        .single();
+
+      if (billData && Array.isArray(billData.members)) {
+        const updatedMembers = billData.members.map((m: any) =>
+          m.id === memberId
+            ? {
+                ...m,
+                slipUrl,
+                paymentStatus,
+                slipUploadedAt,
+              }
+            : m
+        );
+        await supabase
+          .from('party_bills')
+          .update({ members: updatedMembers, updated_at: new Date().toISOString() })
+          .eq('id', billId);
+      }
+    } catch {}
+
+    return !memberError;
+  } catch (err) {
+    console.error('Failed to update member slip in Supabase:', err);
+    return false;
+  }
+}
+
 // Database helper functions for Party Bills
 export async function fetchPartyBillFromSupabase(billId: string): Promise<PartyBill | null> {
   if (!isSupabaseConfigured || !billId) return null;
@@ -42,6 +189,10 @@ export async function fetchPartyBillFromSupabase(billId: string): Promise<PartyB
       .single();
 
     if (error || !data) return null;
+
+    // Fetch members from party_members table if available
+    const tableMembers = await fetchPartyMembersFromSupabase(billId);
+    const membersToUse = tableMembers.length > 0 ? tableMembers : (data.members || []);
 
     // Retrieve meta embedded in gangs or top-level columns
     const embeddedMeta = (data.gangs as any)?.[0]?._meta || (data.members as any)?.[0]?._meta || {};
@@ -69,12 +220,12 @@ export async function fetchPartyBillFromSupabase(billId: string): Promise<PartyB
       depositAmount: isNaN(depositAmount) ? 0 : depositAmount,
       promptPayNumber: data.promptpay_number || '',
       promptPayName: data.promptpay_name || '',
-      payerMemberId: data.payer_member_id || (data.members || []).find((m: any) => m.isPayer)?.id,
+      payerMemberId: data.payer_member_id || (membersToUse || []).find((m: any) => m.isPayer)?.id,
       hostPin: data.host_pin || '1234',
       isPublished,
       publishedAt,
       gangs: data.gangs || [],
-      members: data.members || [],
+      members: membersToUse,
       items: data.items || [],
       updatedAt: data.updated_at,
     };
@@ -142,14 +293,16 @@ export async function savePartyBillToSupabase(bill: PartyBill, hostId?: string):
       updated_at: new Date().toISOString(),
     };
 
-    // CRITICAL: Only set host_id in payload if we have a valid host UUID.
-    // NEVER send host_id: null on upsert, because it would strip host_id from an existing host's bill
-    // when guests upload slips or non-host users update the bill!
     if (validHostId) {
       payload.host_id = validHostId;
     }
 
-    // Retry loop: If schema cache is missing optional columns (PGRST204 / 42703), strip missing column and retry
+    // Upsert members to separate party_members table in background
+    if (bill.members && bill.members.length > 0) {
+      savePartyMembersToSupabase(bill.id, bill.members).catch(() => {});
+    }
+
+    // Retry loop for party_bills upsert
     for (let attempt = 0; attempt < 6; attempt++) {
       const { error } = await supabase.from('party_bills').upsert(payload, { onConflict: 'id' });
       if (!error) {
@@ -164,14 +317,12 @@ export async function savePartyBillToSupabase(bill: PartyBill, hostId?: string):
         errMsg.includes('column of');
 
       if (isMissingColumn) {
-        // Extract missing column name from message e.g. "Could not find the 'service_charge_rate' column"
         const match = errMsg.match(/['"]([a-zA-Z0-9_]+)['"] column/);
         if (match && match[1] && payload[match[1]] !== undefined) {
           delete payload[match[1]];
           continue;
         }
 
-        // Fallback strip all optional new columns
         let removedAny = false;
         const optionalColumns = ['service_charge_rate', 'deposit_amount', 'is_published', 'published_at'];
         for (const col of optionalColumns) {
@@ -183,7 +334,6 @@ export async function savePartyBillToSupabase(bill: PartyBill, hostId?: string):
         if (removedAny) continue;
       }
 
-      // If host_id foreign key / RLS error, delete host_id key and retry
       if (payload.host_id && (error.code === '42501' || error.code === '23503' || errMsg.includes('foreign key') || errMsg.includes('host_id'))) {
         delete payload.host_id;
         continue;
@@ -269,7 +419,7 @@ export async function deletePartyBillFromSupabase(billId: string): Promise<boole
 }
 
 /**
- * Real-time subscription to bill updates (new slip uploaded by guest, verified by host, etc.)
+ * Real-time subscription to bill updates & member slip uploads
  */
 export function subscribeToPartyBill(
   billId: string,
@@ -280,8 +430,10 @@ export function subscribeToPartyBill(
   }
 
   try {
+    const channelId = `party_bill_${billId}_${Date.now()}`;
     const channel = supabase
-      .channel(`party_bill_${billId}_${Date.now()}`)
+      .channel(channelId)
+      // 1. Listen to party_bills changes (Host editing food, gangs, status)
       .on(
         'postgres_changes',
         {
@@ -290,9 +442,12 @@ export function subscribeToPartyBill(
           table: 'party_bills',
           filter: `id=eq.${billId}`,
         },
-        (payload) => {
+        async (payload) => {
           if (payload.new && (payload.new as any).id === billId) {
             const d = payload.new as any;
+            const tableMembers = await fetchPartyMembersFromSupabase(billId);
+            const membersToUse = tableMembers.length > 0 ? tableMembers : (d.members || []);
+
             const embeddedMeta = (d.gangs as any)?.[0]?._meta || (d.members as any)?.[0]?._meta || {};
             const isPublished = d.is_published !== undefined 
               ? Boolean(d.is_published) 
@@ -318,16 +473,32 @@ export function subscribeToPartyBill(
               depositAmount: isNaN(depositAmount) ? 0 : depositAmount,
               promptPayNumber: d.promptpay_number || '',
               promptPayName: d.promptpay_name || '',
-              payerMemberId: d.payer_member_id || (d.members || []).find((m: any) => m.isPayer)?.id,
+              payerMemberId: d.payer_member_id || (membersToUse || []).find((m: any) => m.isPayer)?.id,
               hostPin: d.host_pin || '1234',
               isPublished,
               publishedAt,
               gangs: d.gangs || [],
-              members: d.members || [],
+              members: membersToUse,
               items: d.items || [],
               updatedAt: d.updated_at,
             };
             onUpdate(updatedBill);
+          }
+        }
+      )
+      // 2. Listen to party_members changes (Guests uploading slips in realtime)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'party_members',
+          filter: `bill_id=eq.${billId}`,
+        },
+        async () => {
+          const freshBill = await fetchPartyBillFromSupabase(billId);
+          if (freshBill) {
+            onUpdate(freshBill);
           }
         }
       )
