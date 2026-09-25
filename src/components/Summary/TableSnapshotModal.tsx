@@ -405,24 +405,26 @@ export const TableSnapshotModal: React.FC<TableSnapshotModalProps> = ({
                     {/* Status badge */}
                     <td className="p-2.5 text-center">
                       {member.isFree ? (
-                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-900 border border-amber-300">
-                          👑 เลี้ยงฟรี
+                        <span className="inline-flex items-center space-x-1 rounded-full bg-amber-100 px-3 py-1 text-[11px] font-bold text-amber-900 border border-amber-300 shadow-2xs">
+                          <span>👑 เลี้ยงฟรี</span>
                         </span>
                       ) : (member.isPayer || member.id === bill.payerMemberId) ? (
-                        <span className="inline-flex items-center space-x-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-900 border border-emerald-300">
+                        <span className="inline-flex items-center space-x-1 rounded-full bg-emerald-100 px-3 py-1 text-[11px] font-bold text-emerald-900 border border-emerald-300 shadow-2xs">
                           <span>💳 คนสำรองจ่าย</span>
                         </span>
                       ) : member.paymentStatus === 'VERIFIED' ? (
-                        <span className="inline-flex items-center space-x-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-bold text-emerald-800 border border-emerald-300">
-                          <Check className="h-2.5 w-2.5" />
+                        <span className="inline-flex items-center space-x-1.5 rounded-full bg-emerald-100 px-3 py-1 text-[11px] font-bold text-emerald-800 border border-emerald-300 shadow-2xs">
+                          <Check className="h-3 w-3 text-emerald-700" />
                           <span>ชำระแล้ว</span>
                         </span>
                       ) : member.paymentStatus === 'SLIP_UPLOADED' ? (
-                        <span className="inline-flex items-center space-x-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-bold text-amber-900 border border-amber-300">
+                        <span className="inline-flex items-center space-x-1.5 rounded-full bg-amber-100 px-3 py-1 text-[11px] font-bold text-amber-900 border border-amber-300 shadow-2xs">
+                          <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
                           <span>รอตรวจสลิป</span>
                         </span>
                       ) : (
-                        <span className="inline-flex items-center space-x-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-semibold text-slate-600 border border-slate-300">
+                        <span className="inline-flex items-center space-x-1.5 rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-700 border border-slate-300 shadow-2xs">
+                          <span className="h-2 w-2 rounded-full bg-slate-400" />
                           <span>รอชำระ</span>
                         </span>
                       )}
@@ -435,7 +437,7 @@ export const TableSnapshotModal: React.FC<TableSnapshotModalProps> = ({
             {/* Table Footer: Column Subtotals */}
             <tfoot className="border-t-2 border-slate-400 bg-slate-100 font-bold text-slate-900">
               <tr>
-                <td className="p-2.5 border-r border-slate-300">
+                <td className="p-2.5 border-r border-slate-300 font-bold">
                   รวมทั้งสิ้น ({bill.members.length} คน)
                 </td>
                 <td className="p-2.5 text-right font-mono border-r border-slate-300 text-slate-800">
@@ -455,10 +457,10 @@ export const TableSnapshotModal: React.FC<TableSnapshotModalProps> = ({
                 <td className="p-2.5 text-right font-mono border-r border-slate-300 text-slate-950 font-black">
                   {formatTHB(calculation.sumTotalPayable)}
                 </td>
-                <td className="p-2.5 text-center text-[10px] text-slate-500 font-normal">
-                  {(bill.sponsorBudget || 0) > 0 && <div>งบ +{formatTHB(bill.sponsorBudget || 0)}</div>}
-                  {(bill.depositAmount || 0) > 0 && <div>มัดจำ +{formatTHB(bill.depositAmount || 0)}</div>}
-                  {!(bill.sponsorBudget || 0) && !(bill.depositAmount || 0) && <span>ยอดลงตัว 100%</span>}
+                <td className="p-2.5 text-center text-xs">
+                  <span className="inline-flex items-center space-x-1 rounded-md bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-900 border border-emerald-300">
+                    <span>ตรวจแล้ว {verifiedCount}/{payingMembers.length}</span>
+                  </span>
                 </td>
               </tr>
             </tfoot>
