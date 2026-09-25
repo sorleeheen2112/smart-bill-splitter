@@ -10,9 +10,11 @@ import {
   Search,
   Check,
   CreditCard,
+  Camera,
 } from 'lucide-react';
 import { PartyBill, CalculationResult, Member } from '@/lib/types';
 import { formatTHB } from '@/lib/calculator';
+import { TableSnapshotModal } from './TableSnapshotModal';
 
 interface SheetSummaryTableProps {
   bill: PartyBill;
@@ -30,6 +32,7 @@ export const SheetSummaryTable: React.FC<SheetSummaryTableProps> = ({
   readOnly = false,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [isSnapshotOpen, setIsSnapshotOpen] = useState(false);
 
   const toggleVerify = (memberId: string) => {
     if (readOnly) return;
@@ -69,7 +72,17 @@ export const SheetSummaryTable: React.FC<SheetSummaryTableProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center space-x-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setIsSnapshotOpen(true)}
+            className="flex items-center space-x-1.5 rounded-xl bg-teal-700 px-3.5 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-teal-800 active:scale-95 transition cursor-pointer"
+            title="แคปรูปภาพตารางสรุปยอดเพื่อส่งอัปเดตใน LINE"
+          >
+            <Camera className="h-3.5 w-3.5 text-teal-200" />
+            <span>แคปรูปตาราง</span>
+          </button>
+
           <div className="flex items-center space-x-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 shadow-2xs">
             <span className="flex h-2 w-2 rounded-full bg-emerald-500" />
             <span className="font-semibold">ตรวจแล้ว {verifiedCount}/{payingMembers.length} คน</span>
@@ -87,7 +100,7 @@ export const SheetSummaryTable: React.FC<SheetSummaryTableProps> = ({
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="ค้นหาชื่อ..."
-              className="w-44 rounded-xl border border-slate-300 bg-white pl-9 pr-3 py-1.5 text-xs text-slate-900 placeholder-slate-400 focus:border-teal-600 focus:outline-none shadow-2xs"
+              className="w-36 sm:w-44 rounded-xl border border-slate-300 bg-white pl-9 pr-3 py-1.5 text-xs text-slate-900 placeholder-slate-400 focus:border-teal-600 focus:outline-none shadow-2xs"
             />
           </div>
         </div>
@@ -301,6 +314,14 @@ export const SheetSummaryTable: React.FC<SheetSummaryTableProps> = ({
           </table>
         </div>
       </div>
+
+      {/* Snapshot Preview & Export Modal */}
+      <TableSnapshotModal
+        isOpen={isSnapshotOpen}
+        onClose={() => setIsSnapshotOpen(false)}
+        bill={bill}
+        calculation={calculation}
+      />
     </div>
   );
 };
