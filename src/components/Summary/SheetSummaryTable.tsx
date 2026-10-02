@@ -185,22 +185,35 @@ export const SheetSummaryTable: React.FC<SheetSummaryTableProps> = ({
                             <span>💳 คนสำรองจ่าย</span>
                           </span>
                         ) : member.paymentStatus === 'VERIFIED' ? (
-                          <button
-                            type="button"
-                            disabled={readOnly || loadingMemberId === member.id}
-                            onClick={() => !readOnly && toggleVerify(member.id)}
-                            className={`inline-flex items-center space-x-1 rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-bold text-emerald-800 border border-emerald-300 ${
-                              readOnly ? 'cursor-default' : 'hover:bg-emerald-200 transition'
-                            } disabled:opacity-50`}
-                            title={readOnly ? 'ชำระและตรวจสอบแล้ว' : 'คลิกเพื่อเปลี่ยนสถานะ'}
-                          >
-                            {loadingMemberId === member.id ? (
-                              <Loader2 className="h-3 w-3 animate-spin text-emerald-700" />
-                            ) : (
-                              <CheckCircle2 className="h-3 w-3" />
+                          <div className="flex items-center justify-center space-x-1">
+                            <button
+                              type="button"
+                              disabled={readOnly || loadingMemberId === member.id}
+                              onClick={() => !readOnly && toggleVerify(member.id)}
+                              className={`inline-flex items-center space-x-1 rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-bold text-emerald-800 border border-emerald-300 ${
+                                readOnly ? 'cursor-default' : 'hover:bg-emerald-200 transition'
+                              } disabled:opacity-50`}
+                              title={readOnly ? 'ชำระและตรวจสอบแล้ว' : 'คลิกเพื่อสลับสถานะ'}
+                            >
+                              {loadingMemberId === member.id ? (
+                                <Loader2 className="h-3 w-3 animate-spin text-emerald-700" />
+                              ) : (
+                                <CheckCircle2 className="h-3 w-3 text-emerald-700" />
+                              )}
+                              <span>ชำระแล้ว</span>
+                            </button>
+                            {member.slipUrl && (
+                              <button
+                                type="button"
+                                onClick={() => onViewSlip(member)}
+                                className="inline-flex items-center space-x-0.5 rounded-full bg-teal-50 px-2 py-1 text-[10px] font-bold text-teal-800 border border-teal-300 hover:bg-teal-100 transition shadow-2xs"
+                                title="สุ่มตรวจเช็คข้อมูลสลิปและการโอน"
+                              >
+                                <ImageIcon className="h-3 w-3 text-teal-600" />
+                                <span>ดูสลิป</span>
+                              </button>
                             )}
-                            <span>ชำระแล้ว</span>
-                          </button>
+                          </div>
                         ) : member.paymentStatus === 'SLIP_UPLOADED' ? (
                           <div className="flex items-center space-x-1">
                             <button

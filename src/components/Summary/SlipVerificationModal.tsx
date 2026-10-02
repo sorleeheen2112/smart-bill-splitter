@@ -28,12 +28,12 @@ export const SlipVerificationModal: React.FC<SlipVerificationModalProps> = ({
   const breakdown = member ? calculation.membersBreakdown[member.id] : null;
   const expectedAmount = breakdown?.totalPayable || 0;
 
-  // Auto trigger SlipOK check on modal open if slipUrl is available and not verified yet
+  // Auto trigger verification check on modal open if slipUrl is available
   useEffect(() => {
     setSlipOkData(null);
     setErrorMessage(null);
 
-    if (member?.slipUrl && member.paymentStatus === 'SLIP_UPLOADED') {
+    if (member?.slipUrl) {
       handleCheckSlipWithSlipOk(member.slipUrl);
     }
   }, [member?.id, member?.slipUrl]);
@@ -90,16 +90,29 @@ export const SlipVerificationModal: React.FC<SlipVerificationModalProps> = ({
     }
   };
 
+  const isAlreadyVerified = member.paymentStatus === 'VERIFIED';
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs animate-in fade-in">
       <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 bg-slate-50/50">
           <div>
-            <h3 className="text-base font-bold text-slate-900">
-              ตรวจสอบสลิปโอนเงิน: {member.name}
-            </h3>
-            <p className="text-xs text-slate-500">
+            <div className="flex items-center space-x-2">
+              <h3 className="text-base font-bold text-slate-900">
+                สลิปโอนเงิน: {member.name}
+              </h3>
+              {isAlreadyVerified ? (
+                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800 border border-emerald-300">
+                  ชำระแล้ว
+                </span>
+              ) : (
+                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-900 border border-amber-300">
+                  รอตรวจสลิป
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-slate-500 mt-0.5">
               ยอดที่ต้องชำระ:{' '}
               <strong className="text-emerald-700 font-mono font-bold text-sm">
                 {formatTHB(expectedAmount)}
@@ -127,11 +140,11 @@ export const SlipVerificationModal: React.FC<SlipVerificationModalProps> = ({
           {actionLoading === 'autoVerify' ? (
             <div className="flex items-center justify-center space-x-2 rounded-xl bg-teal-50/60 border border-teal-200 p-3 text-xs text-teal-800">
               <Loader2 className="h-4 w-4 animate-spin text-teal-600" />
-              <span className="font-semibold">กำลังตรวจสอบสลิปกับระบบธนาคาร...</span>
+              <span className="font-semibold">กำลังดึงข้อมูลและตรวจสอบสลิปกับระบบธนาคาร...</span>
             </div>
           ) : slipOkData ? (
             <div
-              className={`rounded-xl p-3.5 text-xs border space-y-2 animate-in fade-in ${
+              className={`rounded-xl p-3.5 text-xs border space-y-2.5 animate-in fade-in ${
                 slipOkData.verified
                   ? 'bg-emerald-50/80 border-emerald-300 text-emerald-950'
                   : 'bg-amber-50/80 border-amber-300 text-amber-950'
@@ -152,7 +165,7 @@ export const SlipVerificationModal: React.FC<SlipVerificationModalProps> = ({
                   )}
                 </span>
                 {slipOkData.data?.amount !== undefined && (
-                  <span className="font-mono font-bold text-sm bg-white/80 px-2 py-0.5 rounded-md border border-slate-200">
+                  <span className="font-mono font-bold text-sm bg-white/90 px-2 py-0.5 rounded-md border border-slate-200 text-emerald-900 shadow-2xs">
                     ฿{slipOkData.data.amount.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
                   </span>
                 )}
@@ -163,23 +176,29 @@ export const SlipVerificationModal: React.FC<SlipVerificationModalProps> = ({
               </p>
 
               {slipOkData.data && (
-                <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-200/60 text-[11px] text-slate-600">
+                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-200/80 text-[11px] text-slate-700 bg-white/60 p-2.5 rounded-lg">
                   {slipOkData.data.senderName && (
-                    <div className="flex items-center space-x-1">
-                      <User className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                    <div className="flex items-center space-x-1.5">
+                      <User className="h-3.5 w-3.5 text-teal-600 shrink-0" />
                       <span className="truncate">ผู้โอน: <strong>{slipOkData.data.senderName}</strong></span>
                     </div>
                   )}
                   {slipOkData.data.senderBank && (
-                    <div className="flex items-center space-x-1">
-                      <Building2 className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                      <span className="truncate">{slipOkData.data.senderBank}</span>
+                    <div className="flex items-center space-x-1.5">
+                      <Building2 className="h-3.5 w-3.5 text-teal-600 shrink-0" />
+                      <span className="truncate">ธนาคาร: <strong>{slipOkData.data.senderBank}</strong></span>
+                    </div>
+                  )}
+                  {slipOkData.data.transDate && (
+                    <div className="flex items-center space-x-1.5 text-slate-600">
+                      <Clock className="h-3.5 w-3.5 text-teal-600 shrink-0" />
+                      <span>วันที่โอน: {slipOkData.data.transDate} {slipOkData.data.transTime || ''}</span>
                     </div>
                   )}
                   {slipOkData.data.transRef && (
-                    <div className="flex items-center space-x-1 col-span-2 text-slate-500 font-mono text-[10px]">
-                      <FileText className="h-3 w-3 shrink-0" />
-                      <span>Ref: {slipOkData.data.transRef}</span>
+                    <div className="flex items-center space-x-1.5 text-slate-500 font-mono text-[10px] col-span-2">
+                      <FileText className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                      <span>รหัสอ้างอิง (Ref): {slipOkData.data.transRef}</span>
                     </div>
                   )}
                 </div>
@@ -215,10 +234,10 @@ export const SlipVerificationModal: React.FC<SlipVerificationModalProps> = ({
             <div className="flex items-center justify-between text-xs text-slate-500">
               <span className="flex items-center space-x-1">
                 <Clock className="h-3.5 w-3.5" />
-                <span>เวลาที่อัปโหลด:</span>
+                <span>เวลาที่อัปโหลดสลิป:</span>
               </span>
               <span className="font-mono text-slate-700 font-semibold">
-                {new Date(member.slipUploadedAt).toLocaleTimeString('th-TH')}
+                {new Date(member.slipUploadedAt).toLocaleString('th-TH')}
               </span>
             </div>
           )}
@@ -226,42 +245,70 @@ export const SlipVerificationModal: React.FC<SlipVerificationModalProps> = ({
 
         {/* Action Footer */}
         <div className="border-t border-slate-100 p-4 bg-slate-50/50">
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              onClick={handleReject}
-              disabled={!!actionLoading}
-              className="flex items-center justify-center space-x-1.5 rounded-xl border border-rose-200 bg-rose-50 py-2.5 text-xs font-bold text-rose-700 hover:bg-rose-100 transition disabled:opacity-50"
-            >
-              {actionLoading === 'reject' ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin text-rose-600" />
-                  <span>กำลังดำเนินการ...</span>
-                </>
-              ) : (
-                <>
-                  <XCircle className="h-4 w-4" />
-                  <span>ขอให้อัปโหลดใหม่</span>
-                </>
-              )}
-            </button>
-            <button
-              onClick={handleVerify}
-              disabled={!!actionLoading}
-              className="flex items-center justify-center space-x-1.5 rounded-xl bg-gradient-to-r from-teal-700 to-emerald-700 py-2.5 text-xs font-bold text-white shadow-sm hover:from-teal-800 hover:to-emerald-800 transition disabled:opacity-50"
-            >
-              {actionLoading === 'verify' ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin text-white" />
-                  <span>กำลังบันทึก...</span>
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 className="h-4 w-4" />
-                  <span>ยืนยันสลิปถูกต้อง</span>
-                </>
-              )}
-            </button>
-          </div>
+          {isAlreadyVerified ? (
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={handleReject}
+                disabled={!!actionLoading}
+                className="flex items-center justify-center space-x-1.5 rounded-xl border border-rose-200 bg-rose-50 py-2.5 text-xs font-bold text-rose-700 hover:bg-rose-100 transition disabled:opacity-50"
+              >
+                {actionLoading === 'reject' ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin text-rose-600" />
+                    <span>กำลังดำเนินการ...</span>
+                  </>
+                ) : (
+                  <>
+                    <XCircle className="h-4 w-4" />
+                    <span>ขอให้อัปโหลดใหม่</span>
+                  </>
+                )}
+              </button>
+              <button
+                onClick={onClose}
+                className="flex items-center justify-center space-x-1.5 rounded-xl bg-slate-900 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-slate-800 transition"
+              >
+                <span>ปิดหน้าต่าง</span>
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={handleReject}
+                disabled={!!actionLoading}
+                className="flex items-center justify-center space-x-1.5 rounded-xl border border-rose-200 bg-rose-50 py-2.5 text-xs font-bold text-rose-700 hover:bg-rose-100 transition disabled:opacity-50"
+              >
+                {actionLoading === 'reject' ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin text-rose-600" />
+                    <span>กำลังดำเนินการ...</span>
+                  </>
+                ) : (
+                  <>
+                    <XCircle className="h-4 w-4" />
+                    <span>ขอให้อัปโหลดใหม่</span>
+                  </>
+                )}
+              </button>
+              <button
+                onClick={handleVerify}
+                disabled={!!actionLoading}
+                className="flex items-center justify-center space-x-1.5 rounded-xl bg-gradient-to-r from-teal-700 to-emerald-700 py-2.5 text-xs font-bold text-white shadow-sm hover:from-teal-800 hover:to-emerald-800 transition disabled:opacity-50"
+              >
+                {actionLoading === 'verify' ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin text-white" />
+                    <span>กำลังบันทึก...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="h-4 w-4" />
+                    <span>ยืนยันสลิปถูกต้อง</span>
+                  </>
+                )}
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
