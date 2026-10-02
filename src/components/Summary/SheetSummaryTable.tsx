@@ -135,6 +135,9 @@ export const SheetSummaryTable: React.FC<SheetSummaryTableProps> = ({
           <table className="w-full text-left text-xs border-collapse">
             <thead className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold sticky top-0">
               <tr>
+                <th className="p-3 border-r border-slate-200 text-center min-w-[130px]">
+                  สถานะ
+                </th>
                 <th className="p-3 border-r border-slate-200 min-w-[150px]">
                   ชื่อผู้ร่วมงาน
                 </th>
@@ -149,11 +152,8 @@ export const SheetSummaryTable: React.FC<SheetSummaryTableProps> = ({
                     👥 {gang.name}
                   </th>
                 ))}
-                <th className="p-3 border-r border-slate-200 text-right min-w-[130px] bg-emerald-50/70 text-emerald-900 font-bold">
+                <th className="p-3 text-right min-w-[130px] bg-emerald-50/70 text-emerald-900 font-bold">
                   💰 ยอดสุทธิ
-                </th>
-                <th className="p-3 text-center min-w-[140px]">
-                  สถานะการชำระ
                 </th>
               </tr>
             </thead>
@@ -172,72 +172,8 @@ export const SheetSummaryTable: React.FC<SheetSummaryTableProps> = ({
                         : 'hover:bg-slate-50'
                     }`}
                   >
-                    {/* Member Name */}
-                    <td className="p-3 font-bold text-slate-900 border-r border-slate-200">
-                      <div className="flex items-center space-x-1.5">
-                        <span>{member.name}</span>
-                        {member.isFree && (
-                          <span className="inline-flex items-center rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-900 border border-amber-300">
-                            <Sparkles className="h-2.5 w-2.5 mr-0.5 text-amber-600" />
-                            [F] ฟรี
-                          </span>
-                        )}
-                      </div>
-                      {member.note && (
-                        <p className="text-[10px] text-slate-400 font-normal line-clamp-1">
-                          {member.note}
-                        </p>
-                      )}
-                    </td>
-
-                    {/* Common Share */}
-                    <td className="p-3 text-right font-mono border-r border-slate-200 text-slate-600 font-semibold">
-                      {member.isFree ? (
-                        <span className="text-amber-600 font-bold">0.00</span>
-                      ) : (
-                        formatTHB(breakdown?.commonShare || 0)
-                      )}
-                    </td>
-
-                    {/* Each Gang Share */}
-                    {bill.gangs.map((gang) => {
-                      const isInGang = (member.gangIds || []).includes(gang.id);
-                      const gBreakdown = calculation.gangsBreakdown[gang.id];
-                      const gangShare = isInGang ? (member.isFree ? 0 : gBreakdown?.sharePerPerson || 0) : null;
-
-                      return (
-                        <td
-                          key={gang.id}
-                          className={`p-3 text-right font-mono border-r border-slate-200 ${
-                            isInGang ? 'text-teal-900 font-bold bg-teal-50/30' : 'text-slate-400'
-                          }`}
-                        >
-                          {isInGang ? (
-                            member.isFree ? (
-                              <span className="text-amber-600">0.00</span>
-                            ) : (
-                              formatTHB(gangShare || 0)
-                            )
-                          ) : (
-                            <span className="text-slate-300">-</span>
-                          )}
-                        </td>
-                      );
-                    })}
-
-                    {/* Total Net Payable */}
-                    <td className="p-3 text-right font-bold text-sm font-mono border-r border-slate-200 bg-emerald-50/40">
-                      {member.isFree ? (
-                        <span className="text-amber-700">0.00 👑</span>
-                      ) : (
-                        <span className="text-slate-900">
-                          {formatTHB(breakdown?.totalPayable || 0)}
-                        </span>
-                      )}
-                    </td>
-
-                    {/* Status & Slip Action */}
-                    <td className="p-3 text-center">
+                    {/* Status & Slip Action (First Column) */}
+                    <td className="p-3 text-center border-r border-slate-200">
                       <div className="flex items-center justify-center space-x-1.5">
                         {member.isFree ? (
                           <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-bold text-amber-900 border border-amber-300">
@@ -312,6 +248,70 @@ export const SheetSummaryTable: React.FC<SheetSummaryTableProps> = ({
                         )}
                       </div>
                     </td>
+
+                    {/* Member Name (Second Column) */}
+                    <td className="p-3 font-bold text-slate-900 border-r border-slate-200">
+                      <div className="flex items-center space-x-1.5">
+                        <span>{member.name}</span>
+                        {member.isFree && (
+                          <span className="inline-flex items-center rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-900 border border-amber-300">
+                            <Sparkles className="h-2.5 w-2.5 mr-0.5 text-amber-600" />
+                            [F] ฟรี
+                          </span>
+                        )}
+                      </div>
+                      {member.note && (
+                        <p className="text-[10px] text-slate-400 font-normal line-clamp-1">
+                          {member.note}
+                        </p>
+                      )}
+                    </td>
+
+                    {/* Common Share */}
+                    <td className="p-3 text-right font-mono border-r border-slate-200 text-slate-600 font-semibold">
+                      {member.isFree ? (
+                        <span className="text-amber-600 font-bold">0.00</span>
+                      ) : (
+                        formatTHB(breakdown?.commonShare || 0)
+                      )}
+                    </td>
+
+                    {/* Each Gang Share */}
+                    {bill.gangs.map((gang) => {
+                      const isInGang = (member.gangIds || []).includes(gang.id);
+                      const gBreakdown = calculation.gangsBreakdown[gang.id];
+                      const gangShare = isInGang ? (member.isFree ? 0 : gBreakdown?.sharePerPerson || 0) : null;
+
+                      return (
+                        <td
+                          key={gang.id}
+                          className={`p-3 text-right font-mono border-r border-slate-200 ${
+                            isInGang ? 'text-teal-900 font-bold bg-teal-50/30' : 'text-slate-400'
+                          }`}
+                        >
+                          {isInGang ? (
+                            member.isFree ? (
+                              <span className="text-amber-600">0.00</span>
+                            ) : (
+                              formatTHB(gangShare || 0)
+                            )
+                          ) : (
+                            <span className="text-slate-300">-</span>
+                          )}
+                        </td>
+                      );
+                    })}
+
+                    {/* Total Net Payable */}
+                    <td className="p-3 text-right font-bold text-sm font-mono bg-emerald-50/40">
+                      {member.isFree ? (
+                        <span className="text-amber-700">0.00 👑</span>
+                      ) : (
+                        <span className="text-slate-900">
+                          {formatTHB(breakdown?.totalPayable || 0)}
+                        </span>
+                      )}
+                    </td>
                   </tr>
                 );
               })}
@@ -320,8 +320,13 @@ export const SheetSummaryTable: React.FC<SheetSummaryTableProps> = ({
             {/* Table Footer: Column Subtotals */}
             <tfoot className="border-t-2 border-slate-300 bg-slate-100 font-bold text-slate-900">
               <tr>
+                <td className="p-3 text-center text-xs text-slate-500 font-normal border-r border-slate-200">
+                  <span>ตรวจแล้ว {verifiedCount}/{payingMembers.length}</span>
+                </td>
                 <td className="p-3 border-r border-slate-200">
-                  รวมทั้งสิ้น ({bill.members.length} คน)
+                  <div className="font-bold">รวมทั้งสิ้น ({bill.members.length} คน)</div>
+                  {(bill.sponsorBudget || 0) > 0 && <div className="text-[11px] text-teal-700 font-normal">งบ +{formatTHB(bill.sponsorBudget || 0)}</div>}
+                  {(bill.depositAmount || 0) > 0 && <div className="text-[11px] text-teal-700 font-normal">มัดจำ +{formatTHB(bill.depositAmount || 0)}</div>}
                 </td>
                 <td className="p-3 text-right font-mono border-r border-slate-200 text-slate-700">
                   {formatTHB(calculation.effectiveCommonTotal)}
@@ -337,13 +342,8 @@ export const SheetSummaryTable: React.FC<SheetSummaryTableProps> = ({
                     </td>
                   );
                 })}
-                <td className="p-3 text-right font-mono border-r border-slate-200 text-slate-900 text-sm">
+                <td className="p-3 text-right font-mono text-slate-900 text-sm">
                   {formatTHB(calculation.sumTotalPayable)}
-                </td>
-                <td className="p-3 text-center text-xs text-slate-500 font-normal">
-                  {(bill.sponsorBudget || 0) > 0 && <div>งบ +{formatTHB(bill.sponsorBudget || 0)}</div>}
-                  {(bill.depositAmount || 0) > 0 && <div>มัดจำ +{formatTHB(bill.depositAmount || 0)}</div>}
-                  {!(bill.sponsorBudget || 0) && !(bill.depositAmount || 0) && <span>ครบถ้วน</span>}
                 </td>
               </tr>
             </tfoot>

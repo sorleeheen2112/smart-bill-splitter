@@ -308,6 +308,9 @@ export const TableSnapshotModal: React.FC<TableSnapshotModalProps> = ({
           <table className="w-full text-left text-xs border-collapse rounded-xl overflow-hidden border border-slate-300">
             <thead className="bg-slate-100 border-b border-slate-300 text-slate-800 font-bold">
               <tr>
+                <th className="p-3 border-r border-slate-300 text-center min-w-[130px] whitespace-nowrap">
+                  สถานะ
+                </th>
                 <th className="p-3 border-r border-slate-300 min-w-[160px] whitespace-nowrap">
                   ชื่อผู้ร่วมงาน
                 </th>
@@ -322,11 +325,8 @@ export const TableSnapshotModal: React.FC<TableSnapshotModalProps> = ({
                     👥 {gang.name}
                   </th>
                 ))}
-                <th className="p-3 border-r border-slate-300 text-right min-w-[125px] bg-emerald-100/70 text-emerald-950 font-black whitespace-nowrap">
+                <th className="p-3 text-right min-w-[125px] bg-emerald-100/70 text-emerald-950 font-black whitespace-nowrap">
                   💰 ยอดสุทธิ
-                </th>
-                <th className="p-3 text-center min-w-[150px] whitespace-nowrap">
-                  สถานะการชำระ
                 </th>
               </tr>
             </thead>
@@ -345,7 +345,35 @@ export const TableSnapshotModal: React.FC<TableSnapshotModalProps> = ({
                         : ''
                     }
                   >
-                    {/* Member Name */}
+                    {/* Status badge (First Column) */}
+                    <td className="p-2.5 text-center border-r border-slate-300 whitespace-nowrap">
+                      {member.isFree ? (
+                        <span className="inline-flex items-center space-x-1 rounded-full bg-amber-100 px-3 py-1 text-[11px] font-bold text-amber-900 border border-amber-300 shadow-2xs">
+                          <span>👑 เลี้ยงฟรี</span>
+                        </span>
+                      ) : (member.isPayer || member.id === bill.payerMemberId) ? (
+                        <span className="inline-flex items-center space-x-1 rounded-full bg-emerald-100 px-3 py-1 text-[11px] font-bold text-emerald-900 border border-emerald-300 shadow-2xs">
+                          <span>💳 คนสำรองจ่าย</span>
+                        </span>
+                      ) : member.paymentStatus === 'VERIFIED' ? (
+                        <span className="inline-flex items-center space-x-1.5 rounded-full bg-emerald-100 px-3 py-1 text-[11px] font-bold text-emerald-800 border border-emerald-300 shadow-2xs">
+                          <Check className="h-3 w-3 text-emerald-700" />
+                          <span>ชำระแล้ว</span>
+                        </span>
+                      ) : member.paymentStatus === 'SLIP_UPLOADED' ? (
+                        <span className="inline-flex items-center space-x-1.5 rounded-full bg-amber-100 px-3 py-1 text-[11px] font-bold text-amber-900 border border-amber-300 shadow-2xs">
+                          <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+                          <span>รอตรวจสลิป</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center space-x-1.5 rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-700 border border-slate-300 shadow-2xs">
+                          <span className="h-2 w-2 rounded-full bg-slate-400" />
+                          <span>รอชำระ</span>
+                        </span>
+                      )}
+                    </td>
+
+                    {/* Member Name (Second Column) */}
                     <td className="p-2.5 font-bold text-slate-900 border-r border-slate-300 whitespace-nowrap">
                       <div className="flex items-center space-x-1.5">
                         <span>{member.name}</span>
@@ -399,39 +427,11 @@ export const TableSnapshotModal: React.FC<TableSnapshotModalProps> = ({
                     })}
 
                     {/* Total Net Payable */}
-                    <td className="p-2.5 text-right font-bold text-xs font-mono border-r border-slate-300 bg-emerald-50/40 text-slate-900 whitespace-nowrap">
+                    <td className="p-2.5 text-right font-bold text-xs font-mono bg-emerald-50/40 text-slate-900 whitespace-nowrap">
                       {member.isFree ? (
                         <span className="text-amber-700">0.00 👑</span>
                       ) : (
                         formatTHB(breakdown?.totalPayable || 0)
-                      )}
-                    </td>
-
-                    {/* Status badge */}
-                    <td className="p-2.5 text-center whitespace-nowrap">
-                      {member.isFree ? (
-                        <span className="inline-flex items-center space-x-1 rounded-full bg-amber-100 px-3 py-1 text-[11px] font-bold text-amber-900 border border-amber-300 shadow-2xs">
-                          <span>👑 เลี้ยงฟรี</span>
-                        </span>
-                      ) : (member.isPayer || member.id === bill.payerMemberId) ? (
-                        <span className="inline-flex items-center space-x-1 rounded-full bg-emerald-100 px-3 py-1 text-[11px] font-bold text-emerald-900 border border-emerald-300 shadow-2xs">
-                          <span>💳 คนสำรองจ่าย</span>
-                        </span>
-                      ) : member.paymentStatus === 'VERIFIED' ? (
-                        <span className="inline-flex items-center space-x-1.5 rounded-full bg-emerald-100 px-3 py-1 text-[11px] font-bold text-emerald-800 border border-emerald-300 shadow-2xs">
-                          <Check className="h-3 w-3 text-emerald-700" />
-                          <span>ชำระแล้ว</span>
-                        </span>
-                      ) : member.paymentStatus === 'SLIP_UPLOADED' ? (
-                        <span className="inline-flex items-center space-x-1.5 rounded-full bg-amber-100 px-3 py-1 text-[11px] font-bold text-amber-900 border border-amber-300 shadow-2xs">
-                          <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
-                          <span>รอตรวจสลิป</span>
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center space-x-1.5 rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-700 border border-slate-300 shadow-2xs">
-                          <span className="h-2 w-2 rounded-full bg-slate-400" />
-                          <span>รอชำระ</span>
-                        </span>
                       )}
                     </td>
                   </tr>
@@ -442,6 +442,11 @@ export const TableSnapshotModal: React.FC<TableSnapshotModalProps> = ({
             {/* Table Footer: Column Subtotals */}
             <tfoot className="border-t-2 border-slate-400 bg-slate-100 font-bold text-slate-900">
               <tr>
+                <td className="p-2.5 text-center text-xs border-r border-slate-300">
+                  <span className="inline-flex items-center space-x-1 rounded-md bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-900 border border-emerald-300">
+                    <span>ตรวจแล้ว {verifiedCount}/{payingMembers.length}</span>
+                  </span>
+                </td>
                 <td className="p-2.5 border-r border-slate-300 font-bold">
                   รวมทั้งสิ้น ({bill.members.length} คน)
                 </td>
@@ -459,13 +464,8 @@ export const TableSnapshotModal: React.FC<TableSnapshotModalProps> = ({
                     </td>
                   );
                 })}
-                <td className="p-2.5 text-right font-mono border-r border-slate-300 text-slate-950 font-black">
+                <td className="p-2.5 text-right font-mono text-slate-950 font-black">
                   {formatTHB(calculation.sumTotalPayable)}
-                </td>
-                <td className="p-2.5 text-center text-xs">
-                  <span className="inline-flex items-center space-x-1 rounded-md bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-900 border border-emerald-300">
-                    <span>ตรวจแล้ว {verifiedCount}/{payingMembers.length}</span>
-                  </span>
                 </td>
               </tr>
             </tfoot>
