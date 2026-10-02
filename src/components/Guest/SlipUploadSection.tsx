@@ -89,8 +89,8 @@ export const SlipUploadSection: React.FC<SlipUploadSectionProps> = ({
     setVerifyNotice(null);
 
     try {
-      // Step 1: Auto-verify slip with SlipOK
-      setLoadingStatus('กำลังตรวจสอบสลิปกับระบบธนาคาร (SlipOK)...');
+      // Step 1: Auto-verify slip with bank system
+      setLoadingStatus('กำลังตรวจสอบสลิปกับระบบธนาคาร...');
       
       let verifyRes = null;
       try {
@@ -240,7 +240,7 @@ export const SlipUploadSection: React.FC<SlipUploadSectionProps> = ({
 
           <div className="rounded-lg bg-teal-50/60 p-2.5 text-center text-xs text-teal-800 border border-teal-200/60 flex items-center justify-center space-x-1.5">
             <Sparkles className="h-3.5 w-3.5 text-teal-600" />
-            <span>ระบบจะตรวจสอบสลิปและยอดเงินอัตโนมัติด้วย SlipOK</span>
+            <span>ระบบจะตรวจสอบสลิปและยอดเงินอัตโนมัติ</span>
           </div>
 
           <div className="grid grid-cols-2 gap-2">

@@ -181,9 +181,9 @@ export async function POST(req: NextRequest) {
     if (expectedAmount !== undefined && !isNaN(expectedAmount) && expectedAmount > 0) {
       slipFormData.append('amount', expectedAmount.toString());
     }
-    slipFormData.append('log', 'true');
+    slipFormData.append('log', 'false');
 
-    // 2. Call SlipOK verification API
+    // 2. Call slip verification API
     const slipOkResponse = await fetch(endpoint, {
       method: 'POST',
       headers: {

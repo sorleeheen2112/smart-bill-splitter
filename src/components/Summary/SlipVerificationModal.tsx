@@ -123,11 +123,11 @@ export const SlipVerificationModal: React.FC<SlipVerificationModalProps> = ({
             </div>
           )}
 
-          {/* SlipOK Auto Verification Result Card */}
+          {/* Auto Verification Result Card */}
           {actionLoading === 'autoVerify' ? (
             <div className="flex items-center justify-center space-x-2 rounded-xl bg-teal-50/60 border border-teal-200 p-3 text-xs text-teal-800">
               <Loader2 className="h-4 w-4 animate-spin text-teal-600" />
-              <span className="font-semibold">กำลังตรวจสอบสลิปกับระบบธนาคารผ่าน SlipOK...</span>
+              <span className="font-semibold">กำลังตรวจสอบสลิปกับระบบธนาคาร...</span>
             </div>
           ) : slipOkData ? (
             <div
@@ -192,7 +192,7 @@ export const SlipVerificationModal: React.FC<SlipVerificationModalProps> = ({
               className="w-full flex items-center justify-center space-x-1.5 rounded-xl border border-teal-300 bg-teal-50 py-2 text-xs font-bold text-teal-800 hover:bg-teal-100 transition"
             >
               <Sparkles className="h-4 w-4 text-teal-600" />
-              <span>กดตรวจสลิปด้วย SlipOK อีกครั้ง</span>
+              <span>กดตรวจสอบสลิปอีกครั้ง</span>
             </button>
           ) : null}
 
