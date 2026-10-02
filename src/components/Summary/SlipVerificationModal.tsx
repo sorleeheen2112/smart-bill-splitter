@@ -12,6 +12,7 @@ interface SlipVerificationModalProps {
   onClose: () => void;
   onVerify: (memberId: string) => Promise<boolean> | void;
   onReject: (memberId: string) => Promise<boolean> | void;
+  onSaveVerification?: (memberId: string, result: SlipVerificationResult) => Promise<boolean> | void;
 }
 
 export const SlipVerificationModal: React.FC<SlipVerificationModalProps> = ({
@@ -20,10 +21,11 @@ export const SlipVerificationModal: React.FC<SlipVerificationModalProps> = ({
   onClose,
   onVerify,
   onReject,
+  onSaveVerification,
 }) => {
   const [actionLoading, setActionLoading] = useState<'verify' | 'reject' | 'autoVerify' | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [slipOkData, setSlipOkData] = useState<SlipVerificationResult | null>(null);
+  const [slipOkData, setSlipOkData] = useState<SlipVerificationResult | null>(member?.slipVerification || null);
   const [quotaRemaining, setQuotaRemaining] = useState<number | null>(null);
   const [isCheckingQuota, setIsCheckingQuota] = useState(false);
 
@@ -33,9 +35,9 @@ export const SlipVerificationModal: React.FC<SlipVerificationModalProps> = ({
   const isAutoVerifying = actionLoading === 'autoVerify';
   const isAnyActionLoading = actionLoading !== null;
 
-  // Reset states and fetch remaining quota when modal opens (if feature enabled)
+  // Hydrate state from member and fetch remaining quota when modal opens (if feature enabled)
   useEffect(() => {
-    setSlipOkData(null);
+    setSlipOkData(member?.slipVerification || null);
     setErrorMessage(null);
 
     if (isEnabled && member?.slipUrl) {
@@ -49,10 +51,10 @@ export const SlipVerificationModal: React.FC<SlipVerificationModalProps> = ({
         .catch((e) => console.warn('Failed to fetch quota:', e))
         .finally(() => setIsCheckingQuota(false));
     }
-  }, [member?.id, isEnabled]);
+  }, [member?.id, member?.slipVerification, isEnabled]);
 
   const handleCheckSlipWithSlipOk = async (url: string) => {
-    if (!url || actionLoading) return;
+    if (!url || actionLoading || !member) return;
     setActionLoading('autoVerify');
     setErrorMessage(null);
     try {
@@ -65,6 +67,15 @@ export const SlipVerificationModal: React.FC<SlipVerificationModalProps> = ({
         setQuotaRemaining(res.quota);
       } else if (quotaRemaining !== null && quotaRemaining > 0) {
         setQuotaRemaining(quotaRemaining - 1);
+      }
+
+      // Persist verification result to member & database so it won't ask again on reload
+      if (onSaveVerification) {
+        try {
+          await onSaveVerification(member.id, res);
+        } catch (saveErr) {
+          console.warn('Failed to persist slip verification result:', saveErr);
+        }
       }
     } catch (err: any) {
       console.warn('Manual verify slip error:', err);

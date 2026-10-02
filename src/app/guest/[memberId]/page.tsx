@@ -78,13 +78,19 @@ export default function GuestDirectPage() {
   const handleUploadSlip = async (
     mId: string,
     slipUrl: string,
-    verifyResult?: { verified: boolean; message: string; paidAmount?: number }
+    verifyResult?: { 
+      verified: boolean; 
+      message: string; 
+      paidAmount?: number; 
+      slipVerification?: import('@/lib/slipok').SlipVerificationResult;
+    }
   ): Promise<boolean> => {
     const now = new Date().toISOString();
     let finalSlipUrl = slipUrl;
 
     const newStatus = verifyResult?.verified ? 'VERIFIED' : 'SLIP_UPLOADED';
     const paidAmount = verifyResult?.paidAmount;
+    const slipVerification = verifyResult?.slipVerification;
 
     if (billId && isSupabaseConfigured) {
       try {
@@ -96,6 +102,7 @@ export default function GuestDirectPage() {
         slipUrl: finalSlipUrl,
         slipUploadedAt: now,
         ...(paidAmount !== undefined && { paidAmount }),
+        ...(slipVerification !== undefined && { slipVerification }),
       });
 
       if (!ok) {
@@ -113,6 +120,7 @@ export default function GuestDirectPage() {
               slipUploadedAt: now,
               paymentStatus: newStatus as 'VERIFIED' | 'SLIP_UPLOADED',
               ...(paidAmount !== undefined && { paidAmount }),
+              ...(slipVerification !== undefined && { slipVerification }),
             }
           : m
       ),

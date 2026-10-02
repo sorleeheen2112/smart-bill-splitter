@@ -773,6 +773,7 @@ export default function DynamicBillPage() {
               paymentStatus: 'PENDING',
               slipUrl: null,
               slipUploadedAt: null,
+              slipVerification: null,
             });
             if (!ok) {
               throw new Error('ไม่สามารถบันทึกสถานะได้ กรุณาลองใหม่อีกครั้ง');
@@ -780,10 +781,37 @@ export default function DynamicBillPage() {
           }
           const updated = bill.members.map((m) =>
             m.id === mId
-              ? { ...m, paymentStatus: 'PENDING' as const, slipUrl: undefined, slipUploadedAt: undefined }
+              ? { ...m, paymentStatus: 'PENDING' as const, slipUrl: undefined, slipUploadedAt: undefined, slipVerification: undefined }
               : m
           );
           handleUpdateBill({ members: updated });
+          return true;
+        }}
+        onSaveVerification={async (mId, result) => {
+          const isVerified = Boolean(result.success && result.verified);
+          const paidAmount = result.data?.amount;
+
+          if (bill.id && isSupabaseConfigured) {
+            await updateMemberPaymentInSupabase(bill.id, mId, {
+              slipVerification: result,
+              ...(isVerified && { paymentStatus: 'VERIFIED' }),
+              ...(paidAmount !== undefined && { paidAmount }),
+            });
+          }
+
+          const updated = bill.members.map((m) =>
+            m.id === mId
+              ? {
+                  ...m,
+                  slipVerification: result,
+                  ...(isVerified && { paymentStatus: 'VERIFIED' as const }),
+                  ...(paidAmount !== undefined && { paidAmount }),
+                }
+              : m
+          );
+          handleUpdateBill({ members: updated });
+          const target = updated.find((m) => m.id === mId);
+          if (target) setViewingSlipMember(target);
           return true;
         }}
       />

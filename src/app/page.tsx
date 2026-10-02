@@ -738,10 +738,27 @@ export default function Home() {
         onReject={(mId) => {
           const updated = activeBill.members.map((m) =>
             m.id === mId
-              ? { ...m, paymentStatus: 'PENDING' as const, slipUrl: undefined }
+              ? { ...m, paymentStatus: 'PENDING' as const, slipUrl: undefined, slipUploadedAt: undefined, slipVerification: undefined }
               : m
           );
           handleUpdateActiveBill({ members: updated });
+        }}
+        onSaveVerification={(mId, result) => {
+          const isVerified = Boolean(result.success && result.verified);
+          const paidAmount = result.data?.amount;
+          const updated = activeBill.members.map((m) =>
+            m.id === mId
+              ? {
+                  ...m,
+                  slipVerification: result,
+                  ...(isVerified && { paymentStatus: 'VERIFIED' as const }),
+                  ...(paidAmount !== undefined && { paidAmount }),
+                }
+              : m
+          );
+          handleUpdateActiveBill({ members: updated });
+          const target = updated.find((m) => m.id === mId);
+          if (target) setViewingSlipMember(target);
         }}
       />
     </div>

@@ -16,6 +16,7 @@ export interface Member {
   slipUploadedAt?: string;
   paidAmount?: number;
   note?: string;
+  slipVerification?: import('./slipok').SlipVerificationResult;
 }
 
 export interface BillItem {

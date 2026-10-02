@@ -14,7 +14,12 @@ interface SlipUploadSectionProps {
   onUploadSlip: (
     memberId: string,
     slipUrl: string,
-    verifyResult?: { verified: boolean; message: string; paidAmount?: number }
+    verifyResult?: { 
+      verified: boolean; 
+      message: string; 
+      paidAmount?: number; 
+      slipVerification?: import('@/lib/slipok').SlipVerificationResult;
+    }
   ) => Promise<boolean> | void;
 }
 
@@ -115,6 +120,7 @@ export const SlipUploadSection: React.FC<SlipUploadSectionProps> = ({
         verified: isAutoVerified,
         message: verifyRes?.message || '',
         paidAmount: paidAmount,
+        slipVerification: verifyRes || undefined,
       });
 
       if (result === false) {

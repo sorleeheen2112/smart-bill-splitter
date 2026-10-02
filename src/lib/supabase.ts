@@ -211,6 +211,7 @@ export async function updateMemberPaymentInSupabase(
     slipUrl?: string | null;
     slipUploadedAt?: string | null;
     paidAmount?: number;
+    slipVerification?: any | null;
   }
 ): Promise<boolean> {
   if (!isSupabaseConfigured || !billId || !memberId) return false;
@@ -257,6 +258,9 @@ export async function updateMemberPaymentInSupabase(
               ...(updates.slipUrl !== undefined && { slipUrl: updates.slipUrl || undefined }),
               ...(updates.slipUploadedAt !== undefined && { slipUploadedAt: updates.slipUploadedAt || undefined }),
               ...(updates.paidAmount !== undefined && { paidAmount: updates.paidAmount }),
+              ...(updates.slipVerification !== undefined && {
+                slipVerification: updates.slipVerification === null ? undefined : updates.slipVerification,
+              }),
             };
           }
           return m;
