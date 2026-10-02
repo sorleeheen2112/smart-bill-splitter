@@ -229,6 +229,7 @@ export async function updateMemberPaymentInSupabase(
       if (updates.slipUrl !== undefined) memberFields.slip_url = updates.slipUrl;
       if (updates.slipUploadedAt !== undefined) memberFields.slip_uploaded_at = updates.slipUploadedAt;
       if (updates.paidAmount !== undefined) memberFields.paid_amount = updates.paidAmount;
+      if (updates.slipVerification !== undefined) memberFields.slip_verification = updates.slipVerification;
 
       const { error: mErr } = await supabase
         .from('party_members')

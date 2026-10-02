@@ -57,10 +57,14 @@ CREATE TABLE IF NOT EXISTS public.party_members (
   slip_url TEXT,
   slip_uploaded_at TIMESTAMPTZ,
   paid_amount NUMERIC DEFAULT 0,
+  slip_verification JSONB,
   note TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Migration support for party_members
+ALTER TABLE public.party_members ADD COLUMN IF NOT EXISTS slip_verification JSONB;
 
 CREATE INDEX IF NOT EXISTS idx_party_members_bill_id ON public.party_members(bill_id);
 
