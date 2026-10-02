@@ -58,7 +58,11 @@ export const GuestViewContainer: React.FC<GuestViewContainerProps> = ({
 
   const selectedMember = bill.members.find((m) => m.id === selectedMemberId) || bill.members[0];
 
-  const handleUploadSlip = async (memberId: string, slipUrl: string): Promise<boolean> => {
+  const handleUploadSlip = async (
+    memberId: string,
+    slipUrl: string,
+    verifyResult?: { verified: boolean; message: string; paidAmount?: number }
+  ): Promise<boolean> => {
     const now = new Date().toISOString();
     // Upload image to storage if Supabase storage is active (falls back safely to base64)
     let finalSlipUrl = slipUrl;
@@ -70,12 +74,16 @@ export const GuestViewContainer: React.FC<GuestViewContainerProps> = ({
       }
     }
 
+    const newStatus = verifyResult?.verified ? 'VERIFIED' : 'SLIP_UPLOADED';
+    const paidAmount = verifyResult?.paidAmount;
+
     // 1. Atomic update in Database (both party_bills JSONB and party_members)
     if (isSupabaseConfigured) {
       const ok = await updateMemberPaymentInSupabase(bill.id, memberId, {
-        paymentStatus: 'SLIP_UPLOADED',
+        paymentStatus: newStatus,
         slipUrl: finalSlipUrl,
         slipUploadedAt: now,
+        ...(paidAmount !== undefined && { paidAmount }),
       });
 
       if (!ok) {
@@ -90,7 +98,8 @@ export const GuestViewContainer: React.FC<GuestViewContainerProps> = ({
             ...m,
             slipUrl: finalSlipUrl,
             slipUploadedAt: now,
-            paymentStatus: 'SLIP_UPLOADED' as const,
+            paymentStatus: newStatus as 'VERIFIED' | 'SLIP_UPLOADED',
+            ...(paidAmount !== undefined && { paidAmount }),
           }
         : m
     );
@@ -382,6 +391,7 @@ export const GuestViewContainer: React.FC<GuestViewContainerProps> = ({
                   <SlipUploadSection
                     key={`slip-${selectedMember.id}`}
                     member={selectedMember}
+                    expectedAmount={breakdown?.totalPayable}
                     onUploadSlip={handleUploadSlip}
                   />
                 )}

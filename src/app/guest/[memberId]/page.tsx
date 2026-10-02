@@ -75,9 +75,16 @@ export default function GuestDirectPage() {
 
   const breakdown = calculation.membersBreakdown[member.id];
 
-  const handleUploadSlip = async (mId: string, slipUrl: string): Promise<boolean> => {
+  const handleUploadSlip = async (
+    mId: string,
+    slipUrl: string,
+    verifyResult?: { verified: boolean; message: string; paidAmount?: number }
+  ): Promise<boolean> => {
     const now = new Date().toISOString();
     let finalSlipUrl = slipUrl;
+
+    const newStatus = verifyResult?.verified ? 'VERIFIED' : 'SLIP_UPLOADED';
+    const paidAmount = verifyResult?.paidAmount;
 
     if (billId && isSupabaseConfigured) {
       try {
@@ -85,9 +92,10 @@ export default function GuestDirectPage() {
       } catch {}
 
       const ok = await updateMemberPaymentInSupabase(billId, mId, {
-        paymentStatus: 'SLIP_UPLOADED',
+        paymentStatus: newStatus,
         slipUrl: finalSlipUrl,
         slipUploadedAt: now,
+        ...(paidAmount !== undefined && { paidAmount }),
       });
 
       if (!ok) {
@@ -103,7 +111,8 @@ export default function GuestDirectPage() {
               ...m,
               slipUrl: finalSlipUrl,
               slipUploadedAt: now,
-              paymentStatus: 'SLIP_UPLOADED' as const,
+              paymentStatus: newStatus as 'VERIFIED' | 'SLIP_UPLOADED',
+              ...(paidAmount !== undefined && { paidAmount }),
             }
           : m
       ),
@@ -160,6 +169,7 @@ export default function GuestDirectPage() {
               <SlipUploadSection
                 key={`slip-${member.id}`}
                 member={member}
+                expectedAmount={breakdown?.totalPayable}
                 onUploadSlip={handleUploadSlip}
               />
             )}
