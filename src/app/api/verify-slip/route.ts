@@ -181,7 +181,8 @@ export async function POST(req: NextRequest) {
     if (expectedAmount !== undefined && !isNaN(expectedAmount) && expectedAmount > 0) {
       slipFormData.append('amount', expectedAmount.toString());
     }
-    slipFormData.append('log', 'false');
+    // Do not append 'log' parameter at all: SlipOK treats absence of log=true as standard slip verification
+    // which bypasses registered branch bank account checks and duplicate checks in SlipOK DB.
 
     // 2. Call slip verification API
     const slipOkResponse = await fetch(endpoint, {
@@ -196,16 +197,17 @@ export async function POST(req: NextRequest) {
 
     // Check if SlipOK returned error
     if (!slipOkResponse.ok || !slipOkJson.success) {
+      console.warn('SlipOK Verification Failed Response:', slipOkJson);
       const code = slipOkJson.code || slipOkResponse.status;
       let message = slipOkJson.message || 'ตรวจสลิปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง';
 
-      if (code === 1001 || message.includes('QR')) {
+      if (code === 1001 || code === 1011 || message.includes('QR')) {
         message = 'ไม่พบ QR Code ในรูปภาพสลิป หรือรูปภาพสลิปไม่ชัดเจน';
-      } else if (code === 1002 || message.includes('duplicate') || message.includes('ซ้ำ')) {
+      } else if (code === 1002 || code === 1012 || message.includes('duplicate') || message.includes('ซ้ำ')) {
         message = 'สลิปนี้เคยถูกใช้งานตรวจสอบในระบบแล้ว (สลิปซ้ำ)';
-      } else if (code === 1003 || message.includes('amount') || message.includes('ยอด')) {
+      } else if (code === 1003 || code === 1013 || message.includes('amount') || message.includes('ยอด')) {
         message = 'ยอดเงินในสลิปไม่ตรงกับยอดที่ต้องชำระ';
-      } else if (code === 1004 || message.includes('receiver') || message.includes('บัญชี')) {
+      } else if (code === 1004 || code === 1014 || message.includes('receiver') || message.includes('บัญชี')) {
         message = 'บัญชีผู้รับเงินในสลิปไม่ตรงกับบัญชีของผู้รับ';
       }
 
