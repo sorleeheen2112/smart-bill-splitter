@@ -206,10 +206,9 @@ export async function POST(req: NextRequest) {
     }
 
     if (expectedAmount !== undefined && !isNaN(expectedAmount) && expectedAmount > 0) {
-      slipFormData.append('amount', expectedAmount.toString());
+      // ปรับยอดเงินเป็นทศนิยม 2 ตำแหน่งตามค่าเงินมาตรฐาน (เช่น 702.11) ก่อนส่งให้ SlipOK
+      slipFormData.append('amount', expectedAmount.toFixed(2));
     }
-    // Do not append 'log' parameter at all: SlipOK treats absence of log=true as standard slip verification
-    // which bypasses registered branch bank account checks and duplicate checks in SlipOK DB.
 
     // 2. Call slip verification API
     const slipOkResponse = await fetch(endpoint, {
@@ -251,12 +250,14 @@ export async function POST(req: NextRequest) {
     }
 
     const data: SlipOkSuccessData = slipOkJson.data || {};
-    const actualAmount = typeof data.amount === 'number' ? data.amount : Number(data.amount || 0);
+    const rawActual = typeof data.amount === 'number' ? data.amount : Number(data.amount || 0);
+    const actualAmount = Math.round(rawActual * 100) / 100;
+    const roundedExpected = expectedAmount !== undefined ? Math.round(expectedAmount * 100) / 100 : undefined;
 
-    // Validate amount match
+    // Validate amount match with floating point tolerance
     let amountMatched = true;
-    if (expectedAmount !== undefined && expectedAmount > 0) {
-      if (Math.abs(actualAmount - expectedAmount) > 0.5) {
+    if (roundedExpected !== undefined && roundedExpected > 0) {
+      if (Math.abs(actualAmount - roundedExpected) > 0.05) {
         amountMatched = false;
       }
     }
