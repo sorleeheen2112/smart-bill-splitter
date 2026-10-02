@@ -11,9 +11,11 @@ import {
   Check,
   CreditCard,
   Camera,
+  Loader2,
 } from 'lucide-react';
 import { PartyBill, CalculationResult, Member } from '@/lib/types';
 import { formatTHB } from '@/lib/calculator';
+import { updateMemberPaymentInSupabase, isSupabaseConfigured } from '@/lib/supabase';
 import { TableSnapshotModal } from './TableSnapshotModal';
 
 interface SheetSummaryTableProps {
@@ -33,17 +35,38 @@ export const SheetSummaryTable: React.FC<SheetSummaryTableProps> = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isSnapshotOpen, setIsSnapshotOpen] = useState(false);
+  const [loadingMemberId, setLoadingMemberId] = useState<string | null>(null);
 
-  const toggleVerify = (memberId: string) => {
-    if (readOnly) return;
-    const updated = bill.members.map((m) => {
-      if (m.id === memberId) {
-        const nextStatus = m.paymentStatus === 'VERIFIED' ? 'PENDING' : 'VERIFIED';
-        return { ...m, paymentStatus: nextStatus as any };
+  const toggleVerify = async (memberId: string) => {
+    if (readOnly || loadingMemberId) return;
+    const targetMember = bill.members.find((m) => m.id === memberId);
+    const nextStatus = targetMember?.paymentStatus === 'VERIFIED' ? 'PENDING' : 'VERIFIED';
+
+    setLoadingMemberId(memberId);
+    try {
+      if (bill.id && isSupabaseConfigured) {
+        const ok = await updateMemberPaymentInSupabase(bill.id, memberId, {
+          paymentStatus: nextStatus as any,
+        });
+
+        if (!ok) {
+          throw new Error('ไม่สามารถอัปเดตสถานะไปยังเซิร์ฟเวอร์ได้ กรุณาลองใหม่อีกครั้ง');
+        }
       }
-      return m;
-    });
-    onUpdateBill({ members: updated });
+
+      const updated = bill.members.map((m) => {
+        if (m.id === memberId) {
+          return { ...m, paymentStatus: nextStatus as any };
+        }
+        return m;
+      });
+      onUpdateBill({ members: updated });
+    } catch (err: any) {
+      console.error('Failed to toggle verify:', err);
+      alert(err?.message || 'เกิดข้อผิดพลาดในการเปลี่ยนสถานะ');
+    } finally {
+      setLoadingMemberId(null);
+    }
   };
 
   const filteredMembers = bill.members.filter((m) =>
@@ -228,14 +251,18 @@ export const SheetSummaryTable: React.FC<SheetSummaryTableProps> = ({
                         ) : member.paymentStatus === 'VERIFIED' ? (
                           <button
                             type="button"
-                            disabled={readOnly}
+                            disabled={readOnly || loadingMemberId === member.id}
                             onClick={() => !readOnly && toggleVerify(member.id)}
                             className={`inline-flex items-center space-x-1 rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-bold text-emerald-800 border border-emerald-300 ${
                               readOnly ? 'cursor-default' : 'hover:bg-emerald-200 transition'
-                            }`}
+                            } disabled:opacity-50`}
                             title={readOnly ? 'ชำระและตรวจสอบแล้ว' : 'คลิกเพื่อเปลี่ยนสถานะ'}
                           >
-                            <CheckCircle2 className="h-3 w-3" />
+                            {loadingMemberId === member.id ? (
+                              <Loader2 className="h-3 w-3 animate-spin text-emerald-700" />
+                            ) : (
+                              <CheckCircle2 className="h-3 w-3" />
+                            )}
                             <span>ชำระแล้ว</span>
                           </button>
                         ) : member.paymentStatus === 'SLIP_UPLOADED' ? (
@@ -252,25 +279,34 @@ export const SheetSummaryTable: React.FC<SheetSummaryTableProps> = ({
                             {!readOnly && (
                               <button
                                 type="button"
+                                disabled={loadingMemberId === member.id}
                                 onClick={() => toggleVerify(member.id)}
-                                className="rounded bg-emerald-600 p-1 text-white hover:bg-emerald-700"
+                                className="rounded bg-emerald-600 p-1 text-white hover:bg-emerald-700 disabled:opacity-50"
                                 title="ยืนยันการชำระเงิน"
                               >
-                                <Check className="h-3 w-3" />
+                                {loadingMemberId === member.id ? (
+                                  <Loader2 className="h-3 w-3 animate-spin text-white" />
+                                ) : (
+                                  <Check className="h-3 w-3" />
+                                )}
                               </button>
                             )}
                           </div>
                         ) : (
                           <button
                             type="button"
-                            disabled={readOnly}
+                            disabled={readOnly || loadingMemberId === member.id}
                             onClick={() => !readOnly && toggleVerify(member.id)}
                             className={`inline-flex items-center space-x-1 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600 border border-slate-200 ${
                               readOnly ? 'cursor-default' : 'hover:bg-slate-200 hover:text-slate-900 transition'
-                            }`}
+                            } disabled:opacity-50`}
                             title={readOnly ? 'รอชำระเงิน' : 'คลิกเพื่อทำเครื่องหมายว่าชำระแล้ว'}
                           >
-                            <Clock className="h-3 w-3" />
+                            {loadingMemberId === member.id ? (
+                              <Loader2 className="h-3 w-3 animate-spin text-slate-500" />
+                            ) : (
+                              <Clock className="h-3 w-3" />
+                            )}
                             <span>รอชำระ</span>
                           </button>
                         )}

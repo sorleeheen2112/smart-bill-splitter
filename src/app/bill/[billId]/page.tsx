@@ -20,12 +20,13 @@ import {
   Link2,
   Copy,
   Check,
+  Loader2,
 } from 'lucide-react';
 import Link from 'next/link';
 import { PartyBill, BillItem, Member } from '@/lib/types';
 import { calculatePartyBill } from '@/lib/calculator';
 import { getQuickShareText } from '@/lib/shareUtils';
-import { fetchPartyBillFromSupabase, savePartyBillToSupabase, subscribeToPartyBill, isSupabaseConfigured } from '@/lib/supabase';
+import { fetchPartyBillFromSupabase, savePartyBillToSupabase, updateMemberPaymentInSupabase, subscribeToPartyBill, isSupabaseConfigured } from '@/lib/supabase';
 import { loadPartyBillFromStorage, savePartyBillToStorage } from '@/lib/storage';
 import { useAuth } from '@/context/AuthContext';
 import { HeaderSettings } from '@/components/HeaderSettings';
@@ -126,15 +127,40 @@ export default function DynamicBillPage() {
     };
   }, [billId]);
 
-  const handleUpdateBill = async (updated: Partial<PartyBill>) => {
-    if (!bill) return;
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleUpdateBill = async (updated: Partial<PartyBill>): Promise<boolean> => {
+    if (!bill) return false;
     const hostIdToPreserve = bill.hostId || hostUser?.id;
     const newBill = { ...bill, ...updated, hostId: hostIdToPreserve };
     setBill(newBill);
     savePartyBillToStorage(newBill);
+
     if (isSupabaseConfigured) {
-      await savePartyBillToSupabase(newBill, hostIdToPreserve);
+      setIsSaving(true);
+      try {
+        const ok = await savePartyBillToSupabase(newBill, hostIdToPreserve);
+        if (!ok) {
+          throw new Error('ไม่สามารถบันทึกการเปลี่ยนแปลงไปยังเซิร์ฟเวอร์ได้ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่');
+        }
+        return true;
+      } catch (err: any) {
+        console.error('Error saving bill to Supabase:', err);
+        alert(err?.message || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล');
+        return false;
+      } finally {
+        setIsSaving(false);
+      }
     }
+    return true;
+  };
+
+  // Dedicated lightweight update for Guest interactions (updates UI & LocalStorage without touching whole bill in Supabase)
+  const handleGuestLocalUpdate = (updated: Partial<PartyBill>) => {
+    if (!bill) return;
+    const newBill = { ...bill, ...updated };
+    setBill(newBill);
+    savePartyBillToStorage(newBill);
   };
 
   const handleSwitchToHost = () => {
@@ -341,11 +367,21 @@ export default function DynamicBillPage() {
                         </button>
                         <button
                           type="button"
+                          disabled={isSaving}
                           onClick={() => handleUpdateBill({ isPublished: true, publishedAt: new Date().toISOString() })}
-                          className="w-full md:w-auto flex items-center justify-center space-x-2 rounded-xl bg-teal-700 px-5 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-teal-800 active:scale-95 transition cursor-pointer"
+                          className="w-full md:w-auto flex items-center justify-center space-x-2 rounded-xl bg-teal-700 px-5 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-teal-800 active:scale-95 transition cursor-pointer disabled:opacity-60"
                         >
-                          <CheckCircle2 className="h-4 w-4 text-teal-200" />
-                          <span>จัดการเสร็จแล้ว • สร้าง QR & เปิดรับเงิน</span>
+                          {isSaving ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin text-white" />
+                              <span>กำลังบันทึก...</span>
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle2 className="h-4 w-4 text-teal-200" />
+                              <span>จัดการเสร็จแล้ว • สร้าง QR & เปิดรับเงิน</span>
+                            </>
+                          )}
                         </button>
                       </div>
                     </div>
@@ -380,10 +416,14 @@ export default function DynamicBillPage() {
                         </button>
                         <button
                           type="button"
+                          disabled={isSaving}
                           onClick={() => handleUpdateBill({ isPublished: false })}
-                          className="flex items-center justify-center space-x-1.5 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-2xs transition cursor-pointer"
+                          className="flex items-center justify-center space-x-1.5 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-2xs transition cursor-pointer disabled:opacity-60"
                           title="พักการจ่ายชั่วคราวเพื่อแก้ไขบิล"
                         >
+                          {isSaving ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin text-slate-500" />
+                          ) : null}
                           <span>พักการจ่าย</span>
                         </button>
                       </div>
@@ -623,7 +663,7 @@ export default function DynamicBillPage() {
           <GuestViewContainer
             bill={bill}
             calculation={calculation}
-            onUpdateBill={handleUpdateBill}
+            onUpdateBill={handleGuestLocalUpdate}
             onSwitchToDetails={() => setActiveView('details')}
           />
         )}
@@ -714,19 +754,37 @@ export default function DynamicBillPage() {
         member={viewingSlipMember}
         calculation={calculation}
         onClose={() => setViewingSlipMember(null)}
-        onVerify={(mId) => {
+        onVerify={async (mId) => {
+          if (bill.id && isSupabaseConfigured) {
+            const ok = await updateMemberPaymentInSupabase(bill.id, mId, { paymentStatus: 'VERIFIED' });
+            if (!ok) {
+              throw new Error('ไม่สามารถบันทึกสถานะได้ กรุณาลองใหม่อีกครั้ง');
+            }
+          }
           const updated = bill.members.map((m) =>
             m.id === mId ? { ...m, paymentStatus: 'VERIFIED' as const } : m
           );
           handleUpdateBill({ members: updated });
+          return true;
         }}
-        onReject={(mId) => {
+        onReject={async (mId) => {
+          if (bill.id && isSupabaseConfigured) {
+            const ok = await updateMemberPaymentInSupabase(bill.id, mId, {
+              paymentStatus: 'PENDING',
+              slipUrl: null,
+              slipUploadedAt: null,
+            });
+            if (!ok) {
+              throw new Error('ไม่สามารถบันทึกสถานะได้ กรุณาลองใหม่อีกครั้ง');
+            }
+          }
           const updated = bill.members.map((m) =>
             m.id === mId
-              ? { ...m, paymentStatus: 'PENDING' as const, slipUrl: undefined }
+              ? { ...m, paymentStatus: 'PENDING' as const, slipUrl: undefined, slipUploadedAt: undefined }
               : m
           );
           handleUpdateBill({ members: updated });
+          return true;
         }}
       />
     </div>

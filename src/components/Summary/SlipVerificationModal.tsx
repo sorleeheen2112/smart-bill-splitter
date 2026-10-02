@@ -1,7 +1,7 @@
 'use client';
 
-import React from 'react';
-import { X, CheckCircle2, XCircle, Clock } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, CheckCircle2, XCircle, Clock, Loader2 } from 'lucide-react';
 import { Member, CalculationResult } from '@/lib/types';
 import { formatTHB } from '@/lib/calculator';
 
@@ -9,8 +9,8 @@ interface SlipVerificationModalProps {
   member: Member | null;
   calculation: CalculationResult;
   onClose: () => void;
-  onVerify: (memberId: string) => void;
-  onReject: (memberId: string) => void;
+  onVerify: (memberId: string) => Promise<boolean> | void;
+  onReject: (memberId: string) => Promise<boolean> | void;
 }
 
 export const SlipVerificationModal: React.FC<SlipVerificationModalProps> = ({
@@ -20,10 +20,47 @@ export const SlipVerificationModal: React.FC<SlipVerificationModalProps> = ({
   onVerify,
   onReject,
 }) => {
+  const [actionLoading, setActionLoading] = useState<'verify' | 'reject' | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
   if (!member) return null;
 
   const breakdown = calculation.membersBreakdown[member.id];
   const expectedAmount = breakdown?.totalPayable || 0;
+
+  const handleVerify = async () => {
+    if (actionLoading) return;
+    setActionLoading('verify');
+    setErrorMessage(null);
+    try {
+      const res = await onVerify(member.id);
+      if (res === false) {
+        throw new Error('ไม่สามารถบันทึกสถานะได้ กรุณาลองใหม่อีกครั้ง');
+      }
+      onClose();
+    } catch (err: any) {
+      setErrorMessage(err?.message || 'เกิดข้อผิดพลาดในการยืนยันสลิป');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleReject = async () => {
+    if (actionLoading) return;
+    setActionLoading('reject');
+    setErrorMessage(null);
+    try {
+      const res = await onReject(member.id);
+      if (res === false) {
+        throw new Error('ไม่สามารถบันทึกสถานะได้ กรุณาลองใหม่อีกครั้ง');
+      }
+      onClose();
+    } catch (err: any) {
+      setErrorMessage(err?.message || 'เกิดข้อผิดพลาดในการปฏิเสธสลิป');
+    } finally {
+      setActionLoading(null);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs animate-in fade-in">
@@ -43,7 +80,8 @@ export const SlipVerificationModal: React.FC<SlipVerificationModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-800"
+            disabled={!!actionLoading}
+            className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-800 disabled:opacity-50"
           >
             <X className="h-5 w-5" />
           </button>
@@ -51,6 +89,12 @@ export const SlipVerificationModal: React.FC<SlipVerificationModalProps> = ({
 
         {/* Content */}
         <div className="p-6 space-y-4">
+          {errorMessage && (
+            <div className="rounded-xl bg-rose-50 p-3 text-xs font-semibold text-rose-700 border border-rose-200 animate-in fade-in">
+              {errorMessage}
+            </div>
+          )}
+
           {/* Slip Image Preview */}
           <div className="flex flex-col items-center justify-center rounded-xl border border-slate-200 bg-slate-50 p-2 overflow-hidden max-h-[380px]">
             {member.slipUrl ? (
@@ -81,24 +125,38 @@ export const SlipVerificationModal: React.FC<SlipVerificationModalProps> = ({
           {/* Action Buttons */}
           <div className="grid grid-cols-2 gap-3 pt-2">
             <button
-              onClick={() => {
-                onReject(member.id);
-                onClose();
-              }}
-              className="flex items-center justify-center space-x-1.5 rounded-xl border border-rose-200 bg-rose-50 py-2.5 text-xs font-bold text-rose-700 hover:bg-rose-100 transition"
+              onClick={handleReject}
+              disabled={!!actionLoading}
+              className="flex items-center justify-center space-x-1.5 rounded-xl border border-rose-200 bg-rose-50 py-2.5 text-xs font-bold text-rose-700 hover:bg-rose-100 transition disabled:opacity-50"
             >
-              <XCircle className="h-4 w-4" />
-              <span>ขอให้อัปโหลดใหม่</span>
+              {actionLoading === 'reject' ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin text-rose-600" />
+                  <span>กำลังดำเนินการ...</span>
+                </>
+              ) : (
+                <>
+                  <XCircle className="h-4 w-4" />
+                  <span>ขอให้อัปโหลดใหม่</span>
+                </>
+              )}
             </button>
             <button
-              onClick={() => {
-                onVerify(member.id);
-                onClose();
-              }}
-              className="flex items-center justify-center space-x-1.5 rounded-xl bg-teal-700 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-teal-800 transition"
+              onClick={handleVerify}
+              disabled={!!actionLoading}
+              className="flex items-center justify-center space-x-1.5 rounded-xl bg-teal-700 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-teal-800 transition disabled:opacity-50"
             >
-              <CheckCircle2 className="h-4 w-4" />
-              <span>ยืนยันสลิปถูกต้อง</span>
+              {actionLoading === 'verify' ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin text-white" />
+                  <span>กำลังบันทึก...</span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="h-4 w-4" />
+                  <span>ยืนยันสลิปถูกต้อง</span>
+                </>
+              )}
             </button>
           </div>
         </div>

@@ -50,6 +50,104 @@ export function mapDbMemberToApp(row: any): Member {
 }
 
 /**
+ * Smart merge members between JSONB column and relational party_members table
+ * Ensures that verified status, uploaded slips, and notes are never lost or overwritten by stale data.
+ */
+export function mergeMembersSafely(jsonMembers: Member[] = [], tableMembers: Member[] = []): Member[] {
+  if (!tableMembers || tableMembers.length === 0) return jsonMembers || [];
+  if (!jsonMembers || jsonMembers.length === 0) return tableMembers || [];
+
+  const tableMap = new Map<string, Member>(tableMembers.map((m) => [m.id, m]));
+
+  return jsonMembers.map((jm) => {
+    const tm = tableMap.get(jm.id);
+    if (!tm) return jm;
+
+    // Resolve payment status priority: VERIFIED > SLIP_UPLOADED > PENDING
+    let resolvedStatus: Member['paymentStatus'] = 'PENDING';
+    if (jm.paymentStatus === 'VERIFIED' || tm.paymentStatus === 'VERIFIED') {
+      resolvedStatus = 'VERIFIED';
+    } else if (jm.paymentStatus === 'SLIP_UPLOADED' || tm.paymentStatus === 'SLIP_UPLOADED') {
+      resolvedStatus = 'SLIP_UPLOADED';
+    } else {
+      resolvedStatus = jm.paymentStatus || tm.paymentStatus || 'PENDING';
+    }
+
+    // Resolve slip URL and upload timestamp
+    const resolvedSlipUrl = jm.slipUrl || tm.slipUrl || undefined;
+    const resolvedUploadedAt = jm.slipUploadedAt || tm.slipUploadedAt || undefined;
+    const resolvedPaidAmount = jm.paidAmount !== undefined ? jm.paidAmount : tm.paidAmount;
+
+    return {
+      ...jm,
+      paymentStatus: resolvedStatus,
+      slipUrl: resolvedSlipUrl,
+      slipUploadedAt: resolvedUploadedAt,
+      paidAmount: resolvedPaidAmount,
+      note: jm.note || tm.note,
+    };
+  });
+}
+
+/**
+ * Upload slip image file to Supabase Storage Bucket ('slips')
+ * Falls back gracefully to original base64 if bucket is unavailable.
+ */
+export async function uploadSlipToSupabaseStorage(
+  fileOrBase64: File | Blob | string,
+  billId: string,
+  memberId: string
+): Promise<string> {
+  if (!isSupabaseConfigured || typeof window === 'undefined') {
+    return typeof fileOrBase64 === 'string' ? fileOrBase64 : '';
+  }
+
+  try {
+    let blob: Blob;
+    if (typeof fileOrBase64 === 'string') {
+      if (!fileOrBase64.startsWith('data:image')) {
+        return fileOrBase64; // Already a URL
+      }
+      // Convert Data URL to Blob
+      const parts = fileOrBase64.split(',');
+      const mime = parts[0].match(/:(.*?);/)?.[1] || 'image/jpeg';
+      const bstr = atob(parts[1]);
+      let n = bstr.length;
+      const u8arr = new Uint8Array(n);
+      while (n--) {
+        u8arr[n] = bstr.charCodeAt(n);
+      }
+      blob = new Blob([u8arr], { type: mime });
+    } else {
+      blob = fileOrBase64;
+    }
+
+    const cleanBillId = billId.replace(/[^a-zA-Z0-9_-]/g, '');
+    const cleanMemberId = memberId.replace(/[^a-zA-Z0-9_-]/g, '');
+    const filePath = `${cleanBillId}/${cleanMemberId}_${Date.now()}.jpg`;
+
+    // Try uploading to 'slips' bucket
+    const { data, error } = await supabase.storage
+      .from('slips')
+      .upload(filePath, blob, {
+        contentType: blob.type || 'image/jpeg',
+        upsert: true,
+      });
+
+    if (!error && data?.path) {
+      const { data: publicData } = supabase.storage.from('slips').getPublicUrl(data.path);
+      if (publicData?.publicUrl) {
+        return publicData.publicUrl;
+      }
+    }
+  } catch (err) {
+    console.warn('Supabase storage upload fallback to base64:', err);
+  }
+
+  return typeof fileOrBase64 === 'string' ? fileOrBase64 : '';
+}
+
+/**
  * Fetch all members for a bill directly from party_members table
  */
 export async function fetchPartyMembersFromSupabase(billId: string): Promise<Member[]> {
@@ -64,7 +162,6 @@ export async function fetchPartyMembersFromSupabase(billId: string): Promise<Mem
     if (error || !data || data.length === 0) return [];
     return data.map(mapDbMemberToApp);
   } catch (err) {
-    console.warn('Failed to fetch party_members from Supabase:', err);
     return [];
   }
 }
@@ -96,56 +193,54 @@ export async function savePartyMembersToSupabase(billId: string, members: Member
       .from('party_members')
       .upsert(rows, { onConflict: 'id' });
 
-    if (error) {
-      // If table doesn't exist yet, silently fail back to JSONB
-      return false;
-    }
-    return true;
+    return !error;
   } catch (err) {
-    console.warn('Failed to upsert party_members:', err);
     return false;
   }
 }
 
 /**
- * ⚡ Atomic update for a member's slip (Prevents Race Condition when multiple guests upload at once)
+ * ⚡ Atomic update for a member's payment and slip status
+ * Syncs both the party_bills (JSONB) and party_members (Relational) tables immediately.
  */
-export async function updateMemberSlipInSupabase(
+export async function updateMemberPaymentInSupabase(
   billId: string,
   memberId: string,
-  slipUrl: string,
-  paymentStatus: Member['paymentStatus'] = 'SLIP_UPLOADED',
-  slipUploadedAt: string = new Date().toISOString()
+  updates: {
+    paymentStatus?: Member['paymentStatus'];
+    slipUrl?: string | null;
+    slipUploadedAt?: string | null;
+    paidAmount?: number;
+  }
 ): Promise<boolean> {
   if (!isSupabaseConfigured || !billId || !memberId) return false;
 
+  const now = new Date().toISOString();
+  let success = false;
+
   try {
-    // 1. Try calling the PostgreSQL RPC atomic function if available
+    // 1. Direct update in party_members table (if available)
     try {
-      const { data, error } = await supabase.rpc('update_member_slip', {
-        p_bill_id: billId,
-        p_member_id: memberId,
-        p_slip_url: slipUrl,
-        p_uploaded_at: slipUploadedAt,
-      });
-      if (!error && data) {
-        return true;
+      const memberFields: Record<string, any> = {
+        updated_at: now,
+      };
+      if (updates.paymentStatus !== undefined) memberFields.payment_status = updates.paymentStatus;
+      if (updates.slipUrl !== undefined) memberFields.slip_url = updates.slipUrl;
+      if (updates.slipUploadedAt !== undefined) memberFields.slip_uploaded_at = updates.slipUploadedAt;
+      if (updates.paidAmount !== undefined) memberFields.paid_amount = updates.paidAmount;
+
+      const { error: mErr } = await supabase
+        .from('party_members')
+        .update(memberFields)
+        .eq('id', memberId)
+        .eq('bill_id', billId);
+
+      if (!mErr) {
+        success = true;
       }
     } catch {}
 
-    // 2. Direct atomic update to party_members row
-    const { error: memberError } = await supabase
-      .from('party_members')
-      .update({
-        slip_url: slipUrl,
-        payment_status: paymentStatus,
-        slip_uploaded_at: slipUploadedAt,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', memberId)
-      .eq('bill_id', billId);
-
-    // 3. Fallback sync to party_bills JSONB column
+    // 2. Guaranteed update in party_bills JSONB column
     try {
       const { data: billData } = await supabase
         .from('party_bills')
@@ -154,28 +249,57 @@ export async function updateMemberSlipInSupabase(
         .single();
 
       if (billData && Array.isArray(billData.members)) {
-        const updatedMembers = billData.members.map((m: any) =>
-          m.id === memberId
-            ? {
-                ...m,
-                slipUrl,
-                paymentStatus,
-                slipUploadedAt,
-              }
-            : m
-        );
-        await supabase
-          .from('party_bills')
-          .update({ members: updatedMembers, updated_at: new Date().toISOString() })
-          .eq('id', billId);
-      }
-    } catch {}
+        const updatedMembers = billData.members.map((m: any) => {
+          if (m.id === memberId) {
+            return {
+              ...m,
+              ...(updates.paymentStatus !== undefined && { paymentStatus: updates.paymentStatus }),
+              ...(updates.slipUrl !== undefined && { slipUrl: updates.slipUrl || undefined }),
+              ...(updates.slipUploadedAt !== undefined && { slipUploadedAt: updates.slipUploadedAt || undefined }),
+              ...(updates.paidAmount !== undefined && { paidAmount: updates.paidAmount }),
+            };
+          }
+          return m;
+        });
 
-    return !memberError;
+        const { error: bErr } = await supabase
+          .from('party_bills')
+          .update({
+            members: updatedMembers,
+            updated_at: now,
+          })
+          .eq('id', billId);
+
+        if (!bErr) {
+          success = true;
+        }
+      }
+    } catch (bCatch) {
+      console.warn('Failed to update party_bills JSONB member:', bCatch);
+    }
+
+    return success;
   } catch (err) {
-    console.error('Failed to update member slip in Supabase:', err);
+    console.error('Failed to update member payment in Supabase:', err);
     return false;
   }
+}
+
+/**
+ * Backwards compatible alias for updateMemberSlipInSupabase
+ */
+export async function updateMemberSlipInSupabase(
+  billId: string,
+  memberId: string,
+  slipUrl: string,
+  paymentStatus: Member['paymentStatus'] = 'SLIP_UPLOADED',
+  slipUploadedAt: string = new Date().toISOString()
+): Promise<boolean> {
+  return updateMemberPaymentInSupabase(billId, memberId, {
+    slipUrl,
+    paymentStatus,
+    slipUploadedAt,
+  });
 }
 
 // Database helper functions for Party Bills
@@ -190,9 +314,9 @@ export async function fetchPartyBillFromSupabase(billId: string): Promise<PartyB
 
     if (error || !data) return null;
 
-    // Fetch members from party_members table if available
+    // Fetch members from party_members table if available and merge safely
     const tableMembers = await fetchPartyMembersFromSupabase(billId);
-    const membersToUse = tableMembers.length > 0 ? tableMembers : (data.members || []);
+    const membersToUse = mergeMembersSafely(data.members || [], tableMembers);
 
     // Retrieve meta embedded in gangs or top-level columns
     const embeddedMeta = (data.gangs as any)?.[0]?._meta || (data.members as any)?.[0]?._meta || {};
@@ -446,7 +570,7 @@ export function subscribeToPartyBill(
           if (payload.new && (payload.new as any).id === billId) {
             const d = payload.new as any;
             const tableMembers = await fetchPartyMembersFromSupabase(billId);
-            const membersToUse = tableMembers.length > 0 ? tableMembers : (d.members || []);
+            const membersToUse = mergeMembersSafely(d.members || [], tableMembers);
 
             const embeddedMeta = (d.gangs as any)?.[0]?._meta || (d.members as any)?.[0]?._meta || {};
             const isPublished = d.is_published !== undefined 

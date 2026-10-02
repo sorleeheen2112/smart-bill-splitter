@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { PartyBill, Member } from '@/lib/types';
 import { calculatePartyBill } from '@/lib/calculator';
 import { loadPartyBillFromStorage, savePartyBillToStorage } from '@/lib/storage';
-import { fetchPartyBillFromSupabase, updateMemberSlipInSupabase, isSupabaseConfigured } from '@/lib/supabase';
+import { fetchPartyBillFromSupabase, updateMemberPaymentInSupabase, uploadSlipToSupabaseStorage, isSupabaseConfigured } from '@/lib/supabase';
 import { GuestBillCard } from '@/components/Guest/GuestBillCard';
 import { PromptPayQRCode } from '@/components/Guest/PromptPayQRCode';
 import { SlipUploadSection } from '@/components/Guest/SlipUploadSection';
@@ -75,18 +75,33 @@ export default function GuestDirectPage() {
 
   const breakdown = calculation.membersBreakdown[member.id];
 
-  const handleUploadSlip = async (mId: string, slipUrl: string) => {
+  const handleUploadSlip = async (mId: string, slipUrl: string): Promise<boolean> => {
     const now = new Date().toISOString();
+    let finalSlipUrl = slipUrl;
+
     if (billId && isSupabaseConfigured) {
-      await updateMemberSlipInSupabase(billId, mId, slipUrl, 'SLIP_UPLOADED', now);
+      try {
+        finalSlipUrl = await uploadSlipToSupabaseStorage(slipUrl, billId, mId);
+      } catch {}
+
+      const ok = await updateMemberPaymentInSupabase(billId, mId, {
+        paymentStatus: 'SLIP_UPLOADED',
+        slipUrl: finalSlipUrl,
+        slipUploadedAt: now,
+      });
+
+      if (!ok) {
+        throw new Error('ไม่สามารถบันทึกสลิปไปยังเซิร์ฟเวอร์ได้ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่');
+      }
     }
+
     const updated = {
       ...bill,
       members: bill.members.map((m) =>
         m.id === mId
           ? {
               ...m,
-              slipUrl,
+              slipUrl: finalSlipUrl,
               slipUploadedAt: now,
               paymentStatus: 'SLIP_UPLOADED' as const,
             }
@@ -95,6 +110,7 @@ export default function GuestDirectPage() {
     };
     setBill(updated);
     savePartyBillToStorage(updated);
+    return true;
   };
 
   return (

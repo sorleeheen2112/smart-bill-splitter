@@ -10,7 +10,7 @@ import { GuestInfographicModal } from './GuestInfographicModal';
 import { DeveloperDonationModal } from './DeveloperDonationModal';
 import { formatTHB } from '@/lib/calculator';
 import { getQuickShareText } from '@/lib/shareUtils';
-import { updateMemberSlipInSupabase } from '@/lib/supabase';
+import { updateMemberPaymentInSupabase, uploadSlipToSupabaseStorage, isSupabaseConfigured } from '@/lib/supabase';
 
 interface GuestViewContainerProps {
   bill: PartyBill;
@@ -58,23 +58,44 @@ export const GuestViewContainer: React.FC<GuestViewContainerProps> = ({
 
   const selectedMember = bill.members.find((m) => m.id === selectedMemberId) || bill.members[0];
 
-  const handleUploadSlip = async (memberId: string, slipUrl: string) => {
+  const handleUploadSlip = async (memberId: string, slipUrl: string): Promise<boolean> => {
     const now = new Date().toISOString();
-    // 1. Atomic update in Database (separate row/table - no collision)
-    await updateMemberSlipInSupabase(bill.id, memberId, slipUrl, 'SLIP_UPLOADED', now);
+    // Upload image to storage if Supabase storage is active (falls back safely to base64)
+    let finalSlipUrl = slipUrl;
+    if (isSupabaseConfigured) {
+      try {
+        finalSlipUrl = await uploadSlipToSupabaseStorage(slipUrl, bill.id, memberId);
+      } catch (err) {
+        console.warn('Storage upload error, using direct url:', err);
+      }
+    }
+
+    // 1. Atomic update in Database (both party_bills JSONB and party_members)
+    if (isSupabaseConfigured) {
+      const ok = await updateMemberPaymentInSupabase(bill.id, memberId, {
+        paymentStatus: 'SLIP_UPLOADED',
+        slipUrl: finalSlipUrl,
+        slipUploadedAt: now,
+      });
+
+      if (!ok) {
+        throw new Error('ไม่สามารถบันทึกสลิปไปยังเซิร์ฟเวอร์ได้ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่');
+      }
+    }
 
     // 2. Update local state
     const updated = bill.members.map((m) =>
       m.id === memberId
         ? {
             ...m,
-            slipUrl,
+            slipUrl: finalSlipUrl,
             slipUploadedAt: now,
             paymentStatus: 'SLIP_UPLOADED' as const,
           }
         : m
     );
     onUpdateBill({ members: updated });
+    return true;
   };
 
   const handleCopyPersonalLink = () => {
