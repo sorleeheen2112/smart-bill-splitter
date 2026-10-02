@@ -45,6 +45,7 @@ export function mapDbMemberToApp(row: any): Member {
     slipUrl: row.slip_url || undefined,
     slipUploadedAt: row.slip_uploaded_at || undefined,
     paidAmount: row.paid_amount ? Number(row.paid_amount) : undefined,
+    slipVerification: row.slip_verification || undefined,
     note: row.note || undefined,
   };
 }
@@ -77,6 +78,7 @@ export function mergeMembersSafely(jsonMembers: Member[] = [], tableMembers: Mem
     const resolvedSlipUrl = jm.slipUrl || tm.slipUrl || undefined;
     const resolvedUploadedAt = jm.slipUploadedAt || tm.slipUploadedAt || undefined;
     const resolvedPaidAmount = jm.paidAmount !== undefined ? jm.paidAmount : tm.paidAmount;
+    const resolvedSlipVerification = tm.slipVerification || jm.slipVerification || undefined;
 
     return {
       ...jm,
@@ -84,6 +86,7 @@ export function mergeMembersSafely(jsonMembers: Member[] = [], tableMembers: Mem
       slipUrl: resolvedSlipUrl,
       slipUploadedAt: resolvedUploadedAt,
       paidAmount: resolvedPaidAmount,
+      slipVerification: resolvedSlipVerification,
       note: jm.note || tm.note,
     };
   });
