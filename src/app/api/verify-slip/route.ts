@@ -57,9 +57,27 @@ async function getRemainingQuota(apiKey: string, branchId: string): Promise<{ qu
 }
 
 /**
+ * Check if SlipOK verification is enabled via ENV
+ */
+function isSlipOkEnabled(): boolean {
+  return (
+    process.env.NEXT_PUBLIC_ENABLE_SLIP_VERIFICATION === 'true' ||
+    process.env.ENABLE_SLIPOK_VERIFICATION === 'true'
+  );
+}
+
+/**
  * GET: Check remaining quota for frontend display or host dashboard
  */
 export async function GET() {
+  if (!isSlipOkEnabled()) {
+    return NextResponse.json({
+      success: false,
+      enabled: false,
+      error: 'ระบบตรวจสอบสลิปอัตโนมัติถูกปิดใช้งาน (Disabled by ENV)',
+    });
+  }
+
   const apiKey = process.env.SLIPOK_API_KEY;
   const branchId = process.env.SLIPOK_BRANCH_ID || '77467';
 
@@ -86,6 +104,15 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
+    if (!isSlipOkEnabled()) {
+      return NextResponse.json({
+        success: false,
+        verified: false,
+        enabled: false,
+        message: 'ระบบตรวจสอบสลิปอัตโนมัติถูกปิดใช้งาน (Host ตรวจสอบสลิปด้วยตนเอง)',
+      });
+    }
+
     const apiKey = process.env.SLIPOK_API_KEY;
     const branchId = process.env.SLIPOK_BRANCH_ID || '77467';
     const endpoint = process.env.SLIPOK_ENDPOINT || `https://api.slipok.com/api/line/apikey/${branchId}`;

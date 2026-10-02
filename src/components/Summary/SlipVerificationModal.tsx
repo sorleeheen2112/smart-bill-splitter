@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { X, CheckCircle2, XCircle, Clock, Loader2, Sparkles, Building2, User, FileText, AlertCircle } from 'lucide-react';
 import { Member, CalculationResult } from '@/lib/types';
 import { formatTHB } from '@/lib/calculator';
-import { verifySlipWithSlipOk, SlipVerificationResult } from '@/lib/slipok';
+import { verifySlipWithSlipOk, SlipVerificationResult, isSlipVerificationEnabled, checkSlipOkQuota } from '@/lib/slipok';
 
 interface SlipVerificationModalProps {
   member: Member | null;
@@ -24,21 +24,35 @@ export const SlipVerificationModal: React.FC<SlipVerificationModalProps> = ({
   const [actionLoading, setActionLoading] = useState<'verify' | 'reject' | 'autoVerify' | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [slipOkData, setSlipOkData] = useState<SlipVerificationResult | null>(null);
+  const [quotaRemaining, setQuotaRemaining] = useState<number | null>(null);
+  const [isCheckingQuota, setIsCheckingQuota] = useState(false);
 
   const breakdown = member ? calculation.membersBreakdown[member.id] : null;
   const expectedAmount = breakdown?.totalPayable || 0;
+  const isEnabled = isSlipVerificationEnabled();
+  const isAutoVerifying = actionLoading === 'autoVerify';
+  const isAnyActionLoading = actionLoading !== null;
 
-  // Auto trigger verification check on modal open if slipUrl is available
+  // Reset states and fetch remaining quota when modal opens (if feature enabled)
   useEffect(() => {
     setSlipOkData(null);
     setErrorMessage(null);
 
-    if (member?.slipUrl) {
-      handleCheckSlipWithSlipOk(member.slipUrl);
+    if (isEnabled && member?.slipUrl) {
+      setIsCheckingQuota(true);
+      checkSlipOkQuota()
+        .then((res) => {
+          if (res.success && res.data) {
+            setQuotaRemaining(res.data.quota);
+          }
+        })
+        .catch((e) => console.warn('Failed to fetch quota:', e))
+        .finally(() => setIsCheckingQuota(false));
     }
-  }, [member?.id, member?.slipUrl]);
+  }, [member?.id, isEnabled]);
 
   const handleCheckSlipWithSlipOk = async (url: string) => {
+    if (!url || actionLoading) return;
     setActionLoading('autoVerify');
     setErrorMessage(null);
     try {
@@ -47,8 +61,14 @@ export const SlipVerificationModal: React.FC<SlipVerificationModalProps> = ({
         expectedAmount: expectedAmount,
       });
       setSlipOkData(res);
+      if (res.quota !== undefined) {
+        setQuotaRemaining(res.quota);
+      } else if (quotaRemaining !== null && quotaRemaining > 0) {
+        setQuotaRemaining(quotaRemaining - 1);
+      }
     } catch (err: any) {
-      console.warn('Auto verify slip error:', err);
+      console.warn('Manual verify slip error:', err);
+      setErrorMessage(err?.message || 'เกิดข้อผิดพลาดในการตรวจสอบสลิป');
     } finally {
       setActionLoading(null);
     }
@@ -203,16 +223,51 @@ export const SlipVerificationModal: React.FC<SlipVerificationModalProps> = ({
                   )}
                 </div>
               )}
+
+              {isEnabled && member.slipUrl && quotaRemaining !== 0 && (
+                <div className="pt-1 flex justify-end">
+                  <button
+                    onClick={() => handleCheckSlipWithSlipOk(member.slipUrl!)}
+                    disabled={isAutoVerifying || isAnyActionLoading}
+                    type="button"
+                    className="text-[11px] font-semibold text-teal-700 hover:text-teal-900 underline flex items-center space-x-1 disabled:opacity-50"
+                  >
+                    <Sparkles className="h-3 w-3" />
+                    <span>กดตรวจเช็คกับธนาคารซ้ำอีกครั้ง</span>
+                  </button>
+                </div>
+              )}
             </div>
-          ) : member.slipUrl ? (
-            <button
-              onClick={() => handleCheckSlipWithSlipOk(member.slipUrl!)}
-              type="button"
-              className="w-full flex items-center justify-center space-x-1.5 rounded-xl border border-teal-300 bg-teal-50 py-2 text-xs font-bold text-teal-800 hover:bg-teal-100 transition"
-            >
-              <Sparkles className="h-4 w-4 text-teal-600" />
-              <span>กดตรวจสอบสลิปอีกครั้ง</span>
-            </button>
+          ) : (member.slipUrl && isEnabled && quotaRemaining !== 0) ? (
+            <div className="rounded-xl border border-teal-200 bg-teal-50/50 p-3 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="flex items-center space-x-1.5 text-xs font-bold text-teal-900">
+                  <Sparkles className="h-4 w-4 text-teal-600" />
+                  <span>ระบบตรวจเช็คกับธนาคาร</span>
+                </span>
+                
+                {isCheckingQuota && (
+                  <span className="flex items-center space-x-1 text-[11px] text-teal-600">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    <span>กำลังโหลด...</span>
+                  </span>
+                )}
+              </div>
+
+              <p className="text-[11px] text-slate-600 leading-relaxed">
+                ป้องกันสลิปปลอม/ยอดเงินไม่ตรง: ตรวจสอบความถูกต้องของสลิปโดยตรงกับระบบธนาคาร
+              </p>
+
+              <button
+                onClick={() => handleCheckSlipWithSlipOk(member.slipUrl!)}
+                disabled={isAutoVerifying || isAnyActionLoading}
+                type="button"
+                className="w-full flex items-center justify-center space-x-1.5 rounded-xl border border-teal-600 bg-teal-600 py-2.5 text-xs font-bold text-white hover:bg-teal-700 active:scale-[0.99] transition shadow-xs disabled:opacity-50"
+              >
+                <Sparkles className="h-4 w-4 text-teal-200" />
+                <span>ตรวจเช็คกับธนาคาร</span>
+              </button>
+            </div>
           ) : null}
 
           {/* Slip Image Preview */}

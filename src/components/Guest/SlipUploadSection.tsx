@@ -5,7 +5,7 @@ import { Upload, CheckCircle2, Camera, Clock, Loader2, X, Send, Sparkles, AlertC
 import confetti from 'canvas-confetti';
 import { Member } from '@/lib/types';
 import { compressSlipImage } from '@/lib/imageUtils';
-import { verifySlipWithSlipOk } from '@/lib/slipok';
+import { verifySlipWithSlipOk, isSlipVerificationEnabled } from '@/lib/slipok';
 import { formatTHB } from '@/lib/calculator';
 
 interface SlipUploadSectionProps {
@@ -89,22 +89,25 @@ export const SlipUploadSection: React.FC<SlipUploadSectionProps> = ({
     setVerifyNotice(null);
 
     try {
-      // Step 1: Auto-verify slip with bank system
-      setLoadingStatus('กำลังตรวจสอบสลิปกับระบบธนาคาร...');
-      
       let verifyRes = null;
-      try {
-        verifyRes = await verifySlipWithSlipOk({
-          imageBase64: tempPreview,
-          expectedAmount: expectedAmount,
-        });
-      } catch (verifyErr) {
-        console.warn('SlipOK verification skipped/errored:', verifyErr);
+      const isAutoVerifyEnabled = isSlipVerificationEnabled();
+
+      // Step 1: Auto-verify with SlipOK if enabled (backend checks quota automatically)
+      if (isAutoVerifyEnabled) {
+        setLoadingStatus('กำลังตรวจสอบสลิปกับระบบธนาคาร...');
+        try {
+          verifyRes = await verifySlipWithSlipOk({
+            imageBase64: tempPreview,
+            expectedAmount: expectedAmount,
+          });
+        } catch (verifyErr) {
+          console.warn('SlipOK verification skipped/errored:', verifyErr);
+        }
       }
 
-      // Step 2: Upload and persist to Supabase/storage
+      // Step 2: Upload and persist to database
       setLoadingStatus('กำลังบันทึกข้อมูลสลิป...');
-      
+
       const isAutoVerified = Boolean(verifyRes?.success && verifyRes?.verified);
       const paidAmount = verifyRes?.data?.amount || (isAutoVerified ? expectedAmount : undefined);
 
@@ -120,7 +123,7 @@ export const SlipUploadSection: React.FC<SlipUploadSectionProps> = ({
 
       setTempPreview(null);
 
-      // Show result feedback to user
+      // Feedback to guest (Never display quota count to guest)
       if (isAutoVerified) {
         setVerifyNotice({
           type: 'success',
@@ -134,23 +137,11 @@ export const SlipUploadSection: React.FC<SlipUploadSectionProps> = ({
             origin: { y: 0.6 },
           });
         } catch (e) {}
-      } else if (verifyRes?.outOfQuota) {
-        setVerifyNotice({
-          type: 'warning',
-          title: 'ส่งสลิปให้ Host แล้ว',
-          message: 'ส่งหลักฐานการโอนให้ Host เรียบร้อยแล้ว (รอ Host ยืนยันยอดเงิน)',
-        });
-      } else if (verifyRes && !verifyRes.verified) {
-        setVerifyNotice({
-          type: 'warning',
-          title: 'ส่งสลิปให้ Host แล้ว',
-          message: verifyRes.message || 'ส่งสลิปเรียบร้อยแล้ว รอ Host ยืนยันยอดเงินอีกครั้ง',
-        });
       } else {
         setVerifyNotice({
           type: 'warning',
-          title: 'ส่งสลิปให้ Host แล้ว',
-          message: 'อัปโหลดสลิปเรียบร้อยแล้ว รอ Host ตรวจสอบยอดเงิน',
+          title: 'ส่งสลิปให้ Host เรียบร้อยแล้ว 🎉',
+          message: 'อัปโหลดหลักฐานการโอนเรียบร้อยแล้ว รอ Host ตรวจสอบและยืนยันยอดเงิน',
         });
       }
     } catch (err: any) {
@@ -193,11 +184,7 @@ export const SlipUploadSection: React.FC<SlipUploadSectionProps> = ({
           }`}
         >
           <div className="flex items-start space-x-2">
-            {verifyNotice.type === 'success' ? (
-              <Sparkles className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
-            ) : (
-              <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
-            )}
+            <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
             <div>
               <p className="font-bold text-xs">{verifyNotice.title}</p>
               <p className="text-[11px] opacity-90 mt-0.5 leading-relaxed">
@@ -215,7 +202,7 @@ export const SlipUploadSection: React.FC<SlipUploadSectionProps> = ({
             {loadingStatus || 'กำลังประมวลผล...'}
           </p>
           <p className="text-[11px] text-slate-500">
-            ระบบกำลังตรวจสอบข้อมูลสลิปอัตโนมัติ กรุณารอสักครู่
+            กำลังบันทึกและส่งสลิป กรุณารอสักครู่
           </p>
         </div>
       ) : tempPreview ? (
@@ -238,9 +225,9 @@ export const SlipUploadSection: React.FC<SlipUploadSectionProps> = ({
             </div>
           )}
 
-          <div className="rounded-lg bg-teal-50/60 p-2.5 text-center text-xs text-teal-800 border border-teal-200/60 flex items-center justify-center space-x-1.5">
-            <Sparkles className="h-3.5 w-3.5 text-teal-600" />
-            <span>ระบบจะตรวจสอบสลิปและยอดเงินอัตโนมัติ</span>
+          <div className="rounded-lg bg-slate-50 p-2.5 text-center text-xs text-slate-600 border border-slate-200 flex items-center justify-center space-x-1.5">
+            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+            <span>หลักฐานการโอนจะถูกส่งไปยัง Host เพื่อตรวจสอบ</span>
           </div>
 
           <div className="grid grid-cols-2 gap-2">
