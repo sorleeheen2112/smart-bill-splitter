@@ -131,10 +131,15 @@ export const SlipUploadSection: React.FC<SlipUploadSectionProps> = ({
 
       // Feedback to guest (Never display quota count to guest)
       if (isAutoVerified) {
+        const isOverpaid = Boolean(verifyRes?.isOverpaid);
+        const overpaidDiff = verifyRes?.overpaidAmount || Math.max(0, (paidAmount || 0) - (expectedAmount || 0));
+
         setVerifyNotice({
           type: 'success',
-          title: 'ตรวจสลิปถูกต้องแล้ว 🎉',
-          message: `ยอดโอน ${formatTHB(paidAmount || expectedAmount || 0)} ตรงตามยอดที่ต้องชำระ ระบบปรับสถานะเป็น "ชำระแล้ว" อัตโนมัติทันที`,
+          title: isOverpaid ? 'ตรวจสลิปผ่าน (โอนเกินยอด) 🎉' : 'ตรวจสลิปถูกต้องแล้ว 🎉',
+          message: isOverpaid
+            ? `ยอดโอน ${formatTHB(paidAmount || 0)} (โอนเกินมา +${formatTHB(overpaidDiff)}) ระบบปรับสถานะเป็น "ชำระแล้ว" อัตโนมัติทันที`
+            : `ยอดโอน ${formatTHB(paidAmount || expectedAmount || 0)} ตรงตามยอดที่ต้องชำระ ระบบปรับสถานะเป็น "ชำระแล้ว" อัตโนมัติทันที`,
         });
         try {
           confetti({

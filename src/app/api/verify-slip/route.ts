@@ -254,11 +254,26 @@ export async function POST(req: NextRequest) {
     const actualAmount = Math.round(rawActual * 100) / 100;
     const roundedExpected = expectedAmount !== undefined ? Math.round(expectedAmount * 100) / 100 : undefined;
 
-    // Validate amount match with floating point tolerance
-    let amountMatched = true;
+    // Validate amount:
+    // - If transferred amount is equal to or GREATER than expected -> Auto-verify (verified = true)
+    // - If transferred amount is LESS than expected -> Do not auto-verify (verified = false)
+    let verified = true;
+    let isOverpaid = false;
+    let overpaidAmount = 0;
+
     if (roundedExpected !== undefined && roundedExpected > 0) {
-      if (Math.abs(actualAmount - roundedExpected) > 0.05) {
-        amountMatched = false;
+      const diff = actualAmount - roundedExpected;
+      if (diff > 0.05) {
+        // Overpaid: Customer transferred more than required -> Auto verify
+        verified = true;
+        isOverpaid = true;
+        overpaidAmount = Math.round(diff * 100) / 100;
+      } else if (diff < -0.05) {
+        // Underpaid: Customer transferred less than required -> Reject auto-verify
+        verified = false;
+      } else {
+        // Exact match within floating-point tolerance
+        verified = true;
       }
     }
 
@@ -272,10 +287,24 @@ export async function POST(req: NextRequest) {
       data.receiver?.account?.name?.en ||
       '';
 
+    let message = '';
+    if (verified) {
+      if (isOverpaid) {
+        message = `ตรวจสลิปสำเร็จ ยอดโอน ฿${actualAmount.toLocaleString('th-TH', { minimumFractionDigits: 2 })} (โอนเกินมา ฿${overpaidAmount.toLocaleString('th-TH', { minimumFractionDigits: 2 })}) ผ่านการตรวจสอบเรียบร้อย`;
+      } else {
+        message = `ตรวจสลิปสำเร็จ ยอดโอน ฿${actualAmount.toLocaleString('th-TH', { minimumFractionDigits: 2 })} ถูกต้อง`;
+      }
+    } else {
+      const underpaidAmount = roundedExpected ? Math.round((roundedExpected - actualAmount) * 100) / 100 : 0;
+      message = `ยอดเงินในสลิป (฿${actualAmount.toLocaleString('th-TH', { minimumFractionDigits: 2 })}) น้อยกว่ายอดที่ต้องชำระ (฿${(roundedExpected || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })}) ขาดอีก ฿${underpaidAmount.toLocaleString('th-TH', { minimumFractionDigits: 2 })}`;
+    }
+
     return NextResponse.json({
       success: true,
-      verified: amountMatched,
-      amountMatched,
+      verified,
+      amountMatched: verified,
+      isOverpaid,
+      overpaidAmount,
       data: {
         transRef: data.transRef,
         transDate: data.transDate,
@@ -288,9 +317,7 @@ export async function POST(req: NextRequest) {
         receiverBank: data.receiver?.bank?.name,
         receiverAccount: data.receiver?.account?.value || data.receiver?.proxy?.value,
       },
-      message: amountMatched
-        ? `ตรวจสลิปสำเร็จ ยอดโอน ฿${actualAmount.toLocaleString('th-TH', { minimumFractionDigits: 2 })} ถูกต้อง`
-        : `ยอดเงินในสลิป (฿${actualAmount}) ไม่ตรงกับยอดที่ต้องชำระ (฿${expectedAmount})`,
+      message,
     });
   } catch (error: any) {
     console.error('SlipOK Verification Error:', error);

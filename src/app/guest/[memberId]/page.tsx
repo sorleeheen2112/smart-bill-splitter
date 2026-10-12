@@ -148,6 +148,11 @@ export default function GuestDirectPage() {
             <span className="text-xs font-semibold text-slate-300">
               {bill.title}
             </span>
+            <span className="rounded-md bg-slate-800 px-2 py-0.5 text-[10px] font-semibold text-slate-300 border border-slate-700">
+              {bill.vatMode === 'EXCLUDE'
+                ? `+VAT ${((bill.vatRate ?? 0.07) * 100).toFixed(0)}%`
+                : 'VAT รวมใน'}
+            </span>
           </div>
         </div>
       </header>

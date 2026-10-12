@@ -174,11 +174,22 @@ export const GuestViewContainer: React.FC<GuestViewContainerProps> = ({
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
           <div>
-            <h3 className="text-sm font-bold text-slate-900 flex items-center space-x-2">
-              <UserCheck className="h-4 w-4 text-emerald-600" />
-              <span>เลือกชื่อของคุณ (Select Your Name)</span>
-            </h3>
-            <p className="text-xs text-slate-500">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-sm font-bold text-slate-900 flex items-center space-x-2">
+                <UserCheck className="h-4 w-4 text-emerald-600" />
+                <span>เลือกชื่อของคุณ (Select Your Name)</span>
+              </h3>
+              <span className={`rounded-md px-2 py-0.5 text-[10px] font-bold border ${
+                bill.vatMode === 'EXCLUDE'
+                  ? 'bg-blue-50 text-blue-800 border-blue-200'
+                  : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+              }`}>
+                {bill.vatMode === 'EXCLUDE'
+                  ? `+VAT ${((bill.vatRate ?? 0.07) * 100).toFixed(0)}% แยกนอก`
+                  : `รวม VAT ${((bill.vatRate ?? 0.07) * 100).toFixed(0)}%`}
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 mt-0.5">
               แตะที่ชื่อเพื่อดูยอดค่าอาหารของคุณและสแกนจ่าย QR
             </p>
           </div>

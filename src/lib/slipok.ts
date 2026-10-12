@@ -2,6 +2,8 @@ export interface SlipVerificationResult {
   success: boolean;
   verified: boolean;
   amountMatched?: boolean;
+  isOverpaid?: boolean;
+  overpaidAmount?: number;
   outOfQuota?: boolean;
   quota?: number;
   message: string;
