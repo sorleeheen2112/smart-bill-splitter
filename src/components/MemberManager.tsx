@@ -1,7 +1,22 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Users, UserPlus, Crown, Trash2, Edit3, Check, Search, Sparkles, FileText, CreditCard } from 'lucide-react';
+import {
+  Users,
+  UserPlus,
+  Crown,
+  Trash2,
+  Edit3,
+  Check,
+  Search,
+  Sparkles,
+  FileText,
+  CreditCard,
+  X,
+  ArrowRight,
+  CheckCircle2,
+  Layers,
+} from 'lucide-react';
 import { Member, PartyBill, CalculationResult } from '@/lib/types';
 import { formatTHB } from '@/lib/calculator';
 
@@ -29,6 +44,11 @@ export const MemberManager: React.FC<MemberManagerProps> = ({
   const [selectedGangIds, setSelectedGangIds] = useState<string[]>([]);
   const [isFree, setIsFree] = useState(false);
   const [note, setNote] = useState('');
+
+  // Generate members from gangs state
+  const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false);
+  const [selectedGangIdsForMember, setSelectedGangIdsForMember] = useState<string[]>([]);
+  const [successNotice, setSuccessNotice] = useState<string | null>(null);
 
   const handleSaveMember = (e: React.FormEvent) => {
     e.preventDefault();
@@ -166,12 +186,99 @@ export const MemberManager: React.FC<MemberManagerProps> = ({
     });
   };
 
+  const openGenerateModal = () => {
+    if (bill.gangs.length === 0) {
+      alert('ยังไม่มีแก๊งในบิลนี้ กรุณาสร้างแก๊งในส่วนของ "จัดการแก๊งอาหาร" ด้านบนก่อน');
+      return;
+    }
+    setSelectedGangIdsForMember(bill.gangs.map((g) => g.id));
+    setIsGenerateModalOpen(true);
+  };
+
+  const toggleSelectGangForMember = (gangId: string) => {
+    if (selectedGangIdsForMember.includes(gangId)) {
+      setSelectedGangIdsForMember(selectedGangIdsForMember.filter((id) => id !== gangId));
+    } else {
+      setSelectedGangIdsForMember([...selectedGangIdsForMember, gangId]);
+    }
+  };
+
+  const handleSelectAllGangsForMember = () => {
+    if (selectedGangIdsForMember.length === bill.gangs.length) {
+      setSelectedGangIdsForMember([]);
+    } else {
+      setSelectedGangIdsForMember(bill.gangs.map((g) => g.id));
+    }
+  };
+
+  const handleConfirmGenerateMembers = () => {
+    const targetGangs = bill.gangs.filter((g) => selectedGangIdsForMember.includes(g.id));
+    if (targetGangs.length === 0) return;
+
+    const currentMembers = bill.members.map((m) => ({ ...m, gangIds: [...(m.gangIds || [])] }));
+    let createdCount = 0;
+    let linkedCount = 0;
+
+    targetGangs.forEach((gang, idx) => {
+      // Check if member with gang name already exists (case-insensitive)
+      const existingMemberIndex = currentMembers.findIndex(
+        (m) => m.name.trim().toLowerCase() === gang.name.trim().toLowerCase()
+      );
+
+      if (existingMemberIndex >= 0) {
+        // Member exists: ensure gang is in gangIds
+        const mem = currentMembers[existingMemberIndex];
+        if (!mem.gangIds.includes(gang.id)) {
+          mem.gangIds.push(gang.id);
+          linkedCount++;
+        }
+      } else {
+        // Create new member
+        const newMember: Member = {
+          id: `m-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 6)}`,
+          name: gang.name.trim(),
+          gangIds: [gang.id],
+          isFree: false,
+          paymentStatus: 'PENDING',
+        };
+        currentMembers.push(newMember);
+        createdCount++;
+        linkedCount++;
+      }
+    });
+
+    onUpdateBill({
+      members: currentMembers,
+    });
+
+    setIsGenerateModalOpen(false);
+    setSuccessNotice(`สร้างสมาชิกตามแก๊งสำเร็จ (สร้างใหม่ ${createdCount} คน, ผูกเข้าแก๊ง ${linkedCount} รายการ)`);
+    setTimeout(() => setSuccessNotice(null), 4000);
+  };
+
   const filteredMembers = bill.members.filter((m) =>
     m.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
+      {/* Toast Notification */}
+      {successNotice && (
+        <div className="mb-4 flex items-center justify-between rounded-xl border border-emerald-300 bg-emerald-50 px-3.5 py-2.5 text-xs font-bold text-emerald-900 shadow-2xs animate-in fade-in">
+          <div className="flex items-center space-x-2">
+            <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+            <span>{successNotice}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSuccessNotice(null)}
+            className="text-emerald-700 hover:text-emerald-900"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div className="flex items-center space-x-2">
           <div className="rounded-lg bg-emerald-50 p-2 text-emerald-700">
@@ -189,6 +296,16 @@ export const MemberManager: React.FC<MemberManagerProps> = ({
 
         {!readOnly && (
           <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={openGenerateModal}
+              className="flex items-center space-x-1.5 rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-800 hover:bg-emerald-100 transition shadow-2xs"
+              title="สร้างสมาชิกอัตโนมัติตามแก๊ง (1 แก๊ง = 1 คน) พร้อมผูกเข้าแก๊งทันที"
+            >
+              <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
+              <span>Generate สมาชิกตามกลุ่ม ({bill.gangs.length} แก๊ง)</span>
+            </button>
+
             <button
               onClick={() => {
                 setIsBatchAdding(!isBatchAdding);
@@ -218,6 +335,44 @@ export const MemberManager: React.FC<MemberManagerProps> = ({
           </div>
         )}
       </div>
+
+      {/* Empty State */}
+      {bill.members.length === 0 && !isAdding && !isBatchAdding && (
+        <div className="mb-4 rounded-xl border border-dashed border-slate-300 bg-slate-50/50 p-6 text-center">
+          <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 mb-2">
+            <Users className="h-5 w-5" />
+          </div>
+          <p className="text-xs font-bold text-slate-800">ยังไม่มีรายชื่อสมาชิกในบิลนี้</p>
+          <p className="text-[11px] text-slate-500 mt-1 max-w-sm mx-auto">
+            กดปุ่มวางหลายชื่อพร้อมกันเพื่อคัดลอกรายชื่อจาก LINE หรือกด Generate สมาชิกตามกลุ่มถ้ามีแก๊งอยู่แล้ว
+          </p>
+          {!readOnly && (
+            <div className="mt-3.5 flex flex-wrap items-center justify-center gap-2">
+              {bill.gangs.length > 0 && (
+                <button
+                  type="button"
+                  onClick={openGenerateModal}
+                  className="inline-flex items-center space-x-1.5 rounded-xl border border-emerald-300 bg-emerald-50 px-3.5 py-1.5 text-xs font-bold text-emerald-800 hover:bg-emerald-100 transition shadow-2xs"
+                >
+                  <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
+                  <span>Generate สมาชิกตามกลุ่ม ({bill.gangs.length} แก๊ง)</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsBatchAdding(true);
+                  setIsAdding(false);
+                }}
+                className="inline-flex items-center space-x-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition shadow-2xs"
+              >
+                <FileText className="h-3.5 w-3.5 text-slate-500" />
+                <span>วางหลายชื่อพร้อมกัน (Batch)</span>
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Batch Add Area */}
       {isBatchAdding && (
@@ -571,6 +726,154 @@ export const MemberManager: React.FC<MemberManagerProps> = ({
           );
         })}
       </div>
+
+      {/* Generate Members From Gangs Modal */}
+      {isGenerateModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs animate-in fade-in">
+          <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 shrink-0">
+              <div className="flex items-center space-x-2">
+                <div className="rounded-xl bg-emerald-100 p-2 text-emerald-800">
+                  <Sparkles className="h-4 w-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">
+                    ⚡ Generate สมาชิกตามกลุ่ม (อาหารจานเดี่ยว)
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    สร้าง 1 สมาชิกต่อ 1 แก๊ง และผูกสมาชิกเข้าแก๊งนั้นให้อัตโนมัติ
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsGenerateModalOpen(false)}
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-800 transition"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="my-3 rounded-xl border border-emerald-200 bg-emerald-50/70 p-3 text-xs text-emerald-950 shrink-0">
+              <p className="font-semibold text-emerald-900 mb-1">
+                💡 สะดวกสุดสำหรับมื้ออาหารจานเดี่ยวที่ราคาไม่เท่ากัน:
+              </p>
+              <p className="text-[11px] text-emerald-800 leading-relaxed">
+                ระบบจะสร้างรายชื่อสมาชิกตามชื่อแก๊งที่มีอยู่ พร้อมผูกสมาชิกเข้าแก๊งให้อัตโนมัติทันที
+                <span className="block mt-1 font-bold text-emerald-950">
+                  📌 หมายเหตุ: รายการอาหารที่เป็น &quot;กองกลาง&quot; (COMMON) จะยังคงหารทุกคนเหมือนเดิม
+                </span>
+              </p>
+            </div>
+
+            <div className="flex items-center justify-between py-1 text-xs text-slate-600 shrink-0">
+              <span className="font-semibold">
+                เลือกแก๊งที่จะสร้างสมาชิก ({selectedGangIdsForMember.length} จาก {bill.gangs.length} แก๊ง):
+              </span>
+              <button
+                type="button"
+                onClick={handleSelectAllGangsForMember}
+                className="font-bold text-emerald-700 hover:text-emerald-900"
+              >
+                {selectedGangIdsForMember.length === bill.gangs.length ? 'ยกเลิกการเลือกทั้งหมด' : 'เลือกทั้งหมด'}
+              </button>
+            </div>
+
+            {/* Gangs Preview List */}
+            <div className="overflow-y-auto space-y-2 py-2 pr-1 my-1 max-h-[300px]">
+              {bill.gangs.map((gang) => {
+                const isSelected = selectedGangIdsForMember.includes(gang.id);
+                const existingMember = bill.members.find(
+                  (m) => m.name.trim().toLowerCase() === gang.name.trim().toLowerCase()
+                );
+                const isAlreadyInGang = existingMember && (existingMember.gangIds || []).includes(gang.id);
+
+                return (
+                  <div
+                    key={gang.id}
+                    onClick={() => toggleSelectGangForMember(gang.id)}
+                    className={`flex items-center justify-between rounded-xl border p-2.5 text-xs transition cursor-pointer select-none ${
+                      isSelected
+                        ? 'border-emerald-300 bg-emerald-50/50 hover:bg-emerald-50'
+                        : 'border-slate-200 bg-white opacity-60 hover:opacity-100'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-2.5">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => {}} // handled by row click
+                        className="h-4 w-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300"
+                      />
+                      <div className="flex items-center space-x-2">
+                        <span
+                          className={`h-2.5 w-2.5 rounded-full shrink-0 ${
+                            gang.colorTag === 'emerald'
+                              ? 'bg-emerald-500'
+                              : gang.colorTag === 'cyan'
+                              ? 'bg-cyan-500'
+                              : gang.colorTag === 'rose'
+                              ? 'bg-rose-500'
+                              : gang.colorTag === 'violet'
+                              ? 'bg-violet-500'
+                              : gang.colorTag === 'purple'
+                              ? 'bg-purple-500'
+                              : gang.colorTag === 'teal'
+                              ? 'bg-teal-500'
+                              : gang.colorTag === 'orange'
+                              ? 'bg-orange-500'
+                              : 'bg-amber-500'
+                          }`}
+                        />
+                        <span className="font-bold text-slate-900">{gang.name}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <ArrowRight className="h-3 w-3 text-slate-400" />
+                      {isAlreadyInGang ? (
+                        <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600 border border-slate-200">
+                          มีสมาชิก &quot;{existingMember?.name}&quot; (อยู่ในแก๊งแล้ว)
+                        </span>
+                      ) : existingMember ? (
+                        <span className="inline-flex items-center rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800 border border-amber-200">
+                          ผูกสมาชิกเดิม &quot;{existingMember.name}&quot; เข้าแก๊งนี้
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center space-x-1 rounded-md bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800 border border-emerald-200">
+                          <Users className="h-2.5 w-2.5 text-emerald-600" />
+                          <span>สร้างสมาชิก: {gang.name}</span>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="mt-4 flex items-center justify-end space-x-2 border-t border-slate-100 pt-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsGenerateModalOpen(false)}
+                className="rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmGenerateMembers}
+                disabled={selectedGangIdsForMember.length === 0}
+                className="flex items-center space-x-1.5 rounded-xl bg-teal-700 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-teal-800 disabled:opacity-40 transition"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                <span>
+                  ยืนยัน Generate ({selectedGangIdsForMember.length} สมาชิก &amp; ผูกเข้าแก๊ง)
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
