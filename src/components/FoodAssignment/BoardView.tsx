@@ -1,10 +1,11 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
-import { GripVertical, Plus, Trash2, Edit2, ArrowRightLeft } from 'lucide-react';
+import { GripVertical, Plus, Trash2, Edit2, ArrowRightLeft, Copy } from 'lucide-react';
 import { BillItem, PartyBill, CalculationResult } from '@/lib/types';
 import { formatTHB, getItemEffectivePrice } from '@/lib/calculator';
+import { DuplicateItemModal } from './DuplicateItemModal';
 
 interface BoardViewProps {
   bill: PartyBill;
@@ -23,6 +24,9 @@ export const BoardView: React.FC<BoardViewProps> = ({
   onAddNewItem,
   readOnly = false,
 }) => {
+  const [itemToSplit, setItemToSplit] = useState<BillItem | null>(null);
+  const [highlightedItemId, setHighlightedItemId] = useState<string | null>(null);
+
   const onDragEnd = (result: DropResult) => {
     const { source, destination, draggableId } = result;
 
@@ -54,6 +58,97 @@ export const BoardView: React.FC<BoardViewProps> = ({
     onUpdateBill({
       items: bill.items.map((it) => (it.id === itemId ? { ...it, assignedTo: newAssignedTo } : it)),
     });
+  };
+
+  const handleDuplicateItem = (itemToDuplicate: BillItem) => {
+    const currentQty = itemToDuplicate.quantity || 1;
+    if (currentQty <= 1) return;
+
+    if (currentQty === 2) {
+      // 1-click split into 1 and 1 directly (no modal needed)
+      const newId = `item-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+      const newItem: BillItem = {
+        ...itemToDuplicate,
+        id: newId,
+        quantity: 1,
+      };
+
+      const updatedItems = bill.items.flatMap((it) => {
+        if (it.id === itemToDuplicate.id) {
+          return [{ ...it, quantity: 1 }, newItem];
+        }
+        return [it];
+      });
+
+      onUpdateBill({ items: updatedItems });
+      setHighlightedItemId(newId);
+      setTimeout(() => setHighlightedItemId(null), 2000);
+    } else {
+      // More than 2 pieces: open options modal
+      setItemToSplit(itemToDuplicate);
+    }
+  };
+
+  const handleConfirmSplit = (item: BillItem, splitQty: number) => {
+    const currentQty = item.quantity || 1;
+    if (splitQty <= 0 || splitQty >= currentQty) return;
+
+    const newId = `item-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const newItem: BillItem = {
+      ...item,
+      id: newId,
+      quantity: splitQty,
+    };
+
+    const updatedItems = bill.items.flatMap((it) => {
+      if (it.id === item.id) {
+        return [{ ...it, quantity: currentQty - splitQty }, newItem];
+      }
+      return [it];
+    });
+
+    onUpdateBill({ items: updatedItems });
+    setHighlightedItemId(newId);
+    setTimeout(() => setHighlightedItemId(null), 2000);
+  };
+
+  const handleConfirmSplitAll = (item: BillItem) => {
+    const currentQty = item.quantity || 1;
+    if (currentQty <= 1) return;
+
+    const newItems: BillItem[] = Array.from({ length: currentQty - 1 }).map((_, idx) => ({
+      ...item,
+      id: `item-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 7)}`,
+      quantity: 1,
+    }));
+
+    const updatedItems = bill.items.flatMap((it) => {
+      if (it.id === item.id) {
+        return [{ ...it, quantity: 1 }, ...newItems];
+      }
+      return [it];
+    });
+
+    onUpdateBill({ items: updatedItems });
+  };
+
+  const handleConfirmClone = (item: BillItem) => {
+    const newId = `item-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const newItem: BillItem = {
+      ...item,
+      id: newId,
+    };
+
+    const updatedItems = bill.items.flatMap((it) => {
+      if (it.id === item.id) {
+        return [it, newItem];
+      }
+      return [it];
+    });
+
+    onUpdateBill({ items: updatedItems });
+    setHighlightedItemId(newId);
+    setTimeout(() => setHighlightedItemId(null), 2000);
   };
 
   const columns = [
@@ -151,7 +246,9 @@ export const BoardView: React.FC<BoardViewProps> = ({
                                 ref={dragProvided.innerRef}
                                 {...dragProvided.draggableProps}
                                 className={`group rounded-xl border bg-white p-3 shadow-2xs transition-all ${
-                                  dragSnapshot.isDragging
+                                  highlightedItemId === item.id
+                                    ? 'border-teal-500 ring-2 ring-teal-500/40 shadow-md bg-teal-50/20'
+                                    : dragSnapshot.isDragging
                                     ? 'border-teal-600 shadow-xl ring-2 ring-teal-600/30'
                                     : 'border-slate-200 hover:border-slate-300 hover:shadow-xs'
                                 }`}
@@ -209,7 +306,18 @@ export const BoardView: React.FC<BoardViewProps> = ({
                                     </select>
 
                                     <div className="flex items-center space-x-1">
+                                      {(item.quantity || 1) > 1 && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleDuplicateItem(item)}
+                                          className="rounded p-1 text-slate-400 hover:bg-teal-50 hover:text-teal-700 transition"
+                                          title="แยก/ทำสำเนารายการ (Duplicate)"
+                                        >
+                                          <Copy className="h-3 w-3" />
+                                        </button>
+                                      )}
                                       <button
+                                        type="button"
                                         onClick={() => onEditItem(item)}
                                         className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-800"
                                         title="แก้ไข"
@@ -217,6 +325,7 @@ export const BoardView: React.FC<BoardViewProps> = ({
                                         <Edit2 className="h-3 w-3" />
                                       </button>
                                       <button
+                                        type="button"
                                         onClick={() => handleDeleteItem(item.id)}
                                         className="rounded p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600"
                                         title="ลบ"
@@ -252,6 +361,16 @@ export const BoardView: React.FC<BoardViewProps> = ({
           ))}
         </div>
       </DragDropContext>
+
+      {/* Modal for splitting / duplicating items with >2 quantity */}
+      <DuplicateItemModal
+        isOpen={!!itemToSplit}
+        onClose={() => setItemToSplit(null)}
+        item={itemToSplit}
+        onConfirmSplit={handleConfirmSplit}
+        onConfirmSplitAll={handleConfirmSplitAll}
+        onConfirmClone={handleConfirmClone}
+      />
     </div>
   );
 };

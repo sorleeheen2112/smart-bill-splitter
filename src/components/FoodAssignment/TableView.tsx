@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState } from 'react';
-import { CheckSquare, Square, Trash2, Edit2, ArrowRight, Filter } from 'lucide-react';
+import { CheckSquare, Square, Trash2, Edit2, ArrowRight, Filter, Copy } from 'lucide-react';
 import { BillItem, PartyBill, CalculationResult } from '@/lib/types';
 import { formatTHB, getItemEffectivePrice } from '@/lib/calculator';
+import { DuplicateItemModal } from './DuplicateItemModal';
 
 interface TableViewProps {
   bill: PartyBill;
@@ -23,6 +24,90 @@ export const TableView: React.FC<TableViewProps> = ({
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
   const [filterGang, setFilterGang] = useState<string>('ALL');
   const [targetGangToBatchMove, setTargetGangToBatchMove] = useState<string>('COMMON');
+  const [itemToSplit, setItemToSplit] = useState<BillItem | null>(null);
+
+  const handleDuplicateItem = (itemToDuplicate: BillItem) => {
+    const currentQty = itemToDuplicate.quantity || 1;
+    if (currentQty <= 1) return;
+
+    if (currentQty === 2) {
+      const newId = `item-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+      const newItem: BillItem = {
+        ...itemToDuplicate,
+        id: newId,
+        quantity: 1,
+      };
+
+      const updatedItems = bill.items.flatMap((it) => {
+        if (it.id === itemToDuplicate.id) {
+          return [{ ...it, quantity: 1 }, newItem];
+        }
+        return [it];
+      });
+
+      onUpdateBill({ items: updatedItems });
+    } else {
+      setItemToSplit(itemToDuplicate);
+    }
+  };
+
+  const handleConfirmSplit = (item: BillItem, splitQty: number) => {
+    const currentQty = item.quantity || 1;
+    if (splitQty <= 0 || splitQty >= currentQty) return;
+
+    const newId = `item-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const newItem: BillItem = {
+      ...item,
+      id: newId,
+      quantity: splitQty,
+    };
+
+    const updatedItems = bill.items.flatMap((it) => {
+      if (it.id === item.id) {
+        return [{ ...it, quantity: currentQty - splitQty }, newItem];
+      }
+      return [it];
+    });
+
+    onUpdateBill({ items: updatedItems });
+  };
+
+  const handleConfirmSplitAll = (item: BillItem) => {
+    const currentQty = item.quantity || 1;
+    if (currentQty <= 1) return;
+
+    const newItems: BillItem[] = Array.from({ length: currentQty - 1 }).map((_, idx) => ({
+      ...item,
+      id: `item-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 7)}`,
+      quantity: 1,
+    }));
+
+    const updatedItems = bill.items.flatMap((it) => {
+      if (it.id === item.id) {
+        return [{ ...it, quantity: 1 }, ...newItems];
+      }
+      return [it];
+    });
+
+    onUpdateBill({ items: updatedItems });
+  };
+
+  const handleConfirmClone = (item: BillItem) => {
+    const newId = `item-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const newItem: BillItem = {
+      ...item,
+      id: newId,
+    };
+
+    const updatedItems = bill.items.flatMap((it) => {
+      if (it.id === item.id) {
+        return [it, newItem];
+      }
+      return [it];
+    });
+
+    onUpdateBill({ items: updatedItems });
+  };
 
   const filteredItems = bill.items.filter((item) => {
     if (filterGang === 'ALL') return true;
@@ -216,19 +301,33 @@ export const TableView: React.FC<TableViewProps> = ({
                       {!readOnly && (
                         <td className="p-3 text-center">
                           <div className="flex items-center justify-center space-x-1">
+                            {(item.quantity || 1) > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => handleDuplicateItem(item)}
+                                className="rounded p-1 text-slate-400 hover:bg-teal-50 hover:text-teal-700 transition"
+                                title="แยก/ทำสำเนารายการ (Duplicate)"
+                              >
+                                <Copy className="h-3.5 w-3.5" />
+                              </button>
+                            )}
                             <button
+                              type="button"
                               onClick={() => onEditItem(item)}
                               className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-800"
+                              title="แก้ไข"
                             >
                               <Edit2 className="h-3.5 w-3.5" />
                             </button>
                             <button
+                              type="button"
                               onClick={() => {
                                 onUpdateBill({
                                   items: bill.items.filter((it) => it.id !== item.id),
                                 });
                               }}
                               className="rounded p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600"
+                              title="ลบ"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </button>
@@ -289,6 +388,16 @@ export const TableView: React.FC<TableViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* Modal for splitting / duplicating items with >2 quantity */}
+      <DuplicateItemModal
+        isOpen={!!itemToSplit}
+        onClose={() => setItemToSplit(null)}
+        item={itemToSplit}
+        onConfirmSplit={handleConfirmSplit}
+        onConfirmSplitAll={handleConfirmSplitAll}
+        onConfirmClone={handleConfirmClone}
+      />
     </div>
   );
 };
