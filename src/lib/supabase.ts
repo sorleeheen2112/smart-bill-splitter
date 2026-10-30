@@ -485,16 +485,92 @@ export async function savePartyBillToSupabase(bill: PartyBill, hostId?: string):
 export async function fetchHostPartyBills(hostId: string): Promise<PartyBill[]> {
   if (!isSupabaseConfigured || !hostId) return [];
   try {
-    const { data, error } = await supabase
+    // 1. Fetch bills metadata WITHOUT the heavy `members` JSONB column (which contains megabytes of Base64 slips)
+    // This reduces payload from 9+ MB down to ~20 KB!
+    const { data: billsData, error: billsErr } = await supabase
       .from('party_bills')
-      .select('*')
+      .select('id, host_id, title, date, location, vat_mode, vat_rate, service_charge_rate, sponsor_budget, deposit_amount, promptpay_number, promptpay_name, host_pin, is_published, published_at, gangs, items, updated_at, created_at')
       .eq('host_id', hostId)
       .order('created_at', { ascending: false });
 
-    if (error || !data) return [];
+    // Fallback if specific column select fails on older schema
+    if (billsErr || !billsData) {
+      console.warn('Lightweight bills fetch warning, falling back:', billsErr?.message);
+      const { data: fallbackData } = await supabase
+        .from('party_bills')
+        .select('*')
+        .eq('host_id', hostId)
+        .order('created_at', { ascending: false });
 
-    return data.map((d: any) => {
-      const embeddedMeta = (d.gangs as any)?.[0]?._meta || (d.members as any)?.[0]?._meta || {};
+      if (!fallbackData) return [];
+
+      return fallbackData.map((d: any) => {
+        // Strip large Base64 slips from members in memory for history list
+        const safeMembers = Array.isArray(d.members)
+          ? d.members.map((m: any) => ({
+              ...m,
+              slipUrl: m.slipUrl && m.slipUrl.length > 500 ? undefined : m.slipUrl,
+            }))
+          : [];
+
+        const embeddedMeta = (d.gangs as any)?.[0]?._meta || (d.members as any)?.[0]?._meta || {};
+        const isPublished = d.is_published !== undefined 
+          ? Boolean(d.is_published) 
+          : (embeddedMeta.isPublished ?? false);
+        const publishedAt = d.published_at || embeddedMeta.publishedAt;
+        const serviceChargeRate = d.service_charge_rate !== undefined
+          ? Number(d.service_charge_rate)
+          : (embeddedMeta.serviceChargeRate !== undefined ? Number(embeddedMeta.serviceChargeRate) : 0);
+        const depositAmount = d.deposit_amount !== undefined
+          ? Number(d.deposit_amount)
+          : (embeddedMeta.depositAmount !== undefined ? Number(embeddedMeta.depositAmount) : 0);
+
+        return {
+          id: d.id,
+          hostId: d.host_id || hostId,
+          title: d.title,
+          date: d.date,
+          location: d.location || '',
+          serviceChargeRate: isNaN(serviceChargeRate) ? 0 : serviceChargeRate,
+          vatMode: d.vat_mode || 'INCLUDE',
+          vatRate: Number(d.vat_rate) || 0.07,
+          sponsorBudget: Number(d.sponsor_budget) || 0,
+          depositAmount: isNaN(depositAmount) ? 0 : depositAmount,
+          promptPayNumber: d.promptpay_number || '',
+          promptPayName: d.promptpay_name || '',
+          hostPin: d.host_pin || '1234',
+          payerMemberId: d.payer_member_id || safeMembers.find((m: any) => m.isPayer)?.id,
+          isPublished,
+          publishedAt,
+          gangs: d.gangs || [],
+          members: safeMembers,
+          items: d.items || [],
+          updatedAt: d.updated_at,
+        };
+      });
+    }
+
+    if (billsData.length === 0) return [];
+
+    // 2. Fetch lightweight members from party_members table without slip_url (~15 KB payload)
+    const billIds = billsData.map((b) => b.id);
+    const { data: membersRows } = await supabase
+      .from('party_members')
+      .select('id, bill_id, name, gang_ids, is_free, is_payer, payment_status, paid_amount, note')
+      .in('bill_id', billIds);
+
+    const membersByBill = new Map<string, Member[]>();
+    if (Array.isArray(membersRows)) {
+      for (const row of membersRows) {
+        const m = mapDbMemberToApp(row);
+        const list = membersByBill.get(row.bill_id) || [];
+        list.push(m);
+        membersByBill.set(row.bill_id, list);
+      }
+    }
+
+    return billsData.map((d: any) => {
+      const embeddedMeta = (d.gangs as any)?.[0]?._meta || {};
       const isPublished = d.is_published !== undefined 
         ? Boolean(d.is_published) 
         : (embeddedMeta.isPublished ?? false);
@@ -505,6 +581,8 @@ export async function fetchHostPartyBills(hostId: string): Promise<PartyBill[]> 
       const depositAmount = d.deposit_amount !== undefined
         ? Number(d.deposit_amount)
         : (embeddedMeta.depositAmount !== undefined ? Number(embeddedMeta.depositAmount) : 0);
+
+      const members = membersByBill.get(d.id) || [];
 
       return {
         id: d.id,
@@ -520,11 +598,11 @@ export async function fetchHostPartyBills(hostId: string): Promise<PartyBill[]> 
         promptPayNumber: d.promptpay_number || '',
         promptPayName: d.promptpay_name || '',
         hostPin: d.host_pin || '1234',
-        payerMemberId: d.payer_member_id || (d.members || []).find((m: any) => m.isPayer)?.id,
+        payerMemberId: d.payer_member_id || members.find((m) => m.isPayer)?.id,
         isPublished,
         publishedAt,
         gangs: d.gangs || [],
-        members: d.members || [],
+        members,
         items: d.items || [],
         updatedAt: d.updated_at,
       };

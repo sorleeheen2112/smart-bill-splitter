@@ -29,11 +29,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    let isMounted = true;
+    let initialLoadDone = false;
+
     async function initAuth() {
       if (isSupabaseConfigured) {
         try {
           const { data: { session } } = await supabase.auth.getSession();
-          if (session?.user) {
+          if (session?.user && isMounted) {
             await loadSupabaseUserProfile(session.user.id, session.user.email || '');
           }
         } catch (e) {
@@ -43,12 +46,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Load local host from localStorage if available
         try {
           const raw = localStorage.getItem(LOCAL_HOST_STORAGE_KEY);
-          if (raw) {
+          if (raw && isMounted) {
             setHostUser(JSON.parse(raw));
           }
         } catch (e) {}
       }
-      setIsLoading(false);
+      if (isMounted) {
+        initialLoadDone = true;
+        setIsLoading(false);
+      }
     }
 
     initAuth();
@@ -56,8 +62,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (isSupabaseConfigured) {
       const { data: { subscription } } = supabase.auth.onAuthStateChange(
         async (event, session) => {
+          if (!isMounted) return;
           if (session?.user) {
-            await loadSupabaseUserProfile(session.user.id, session.user.email || '');
+            // Avoid duplicate fetch on initial mount
+            if (initialLoadDone || event !== 'INITIAL_SESSION') {
+              await loadSupabaseUserProfile(session.user.id, session.user.email || '');
+            }
           } else {
             setHostUser(null);
           }
@@ -65,6 +75,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       );
 
       return () => {
+        isMounted = false;
         subscription.unsubscribe();
       };
     }
@@ -72,29 +83,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const loadSupabaseUserProfile = async (userId: string, email: string) => {
     try {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('hosts')
         .select('*')
         .eq('id', userId)
         .single();
 
-      if (data) {
-        setHostUser({
-          id: data.id,
-          email: data.email,
-          firstName: data.first_name,
-          lastName: data.last_name,
-          phoneNumber: data.phone_number,
-          defaultPromptPay: data.default_promptpay,
-        });
-      } else {
-        // Fallback profile if row not created yet
-        setHostUser({
-          id: userId,
-          email: email,
-          firstName: email.split('@')[0],
-        });
-      }
+      const newProfile: HostProfile = data
+        ? {
+            id: data.id,
+            email: data.email,
+            firstName: data.first_name,
+            lastName: data.last_name,
+            phoneNumber: data.phone_number,
+            defaultPromptPay: data.default_promptpay,
+          }
+        : {
+            id: userId,
+            email: email,
+            firstName: email.split('@')[0],
+          };
+
+      // Only update hostUser if fields actually changed to keep stable reference
+      setHostUser((prev) => {
+        if (
+          prev &&
+          prev.id === newProfile.id &&
+          prev.email === newProfile.email &&
+          prev.firstName === newProfile.firstName &&
+          prev.lastName === newProfile.lastName &&
+          prev.defaultPromptPay === newProfile.defaultPromptPay
+        ) {
+          return prev;
+        }
+        return newProfile;
+      });
     } catch (e) {
       console.error('Failed to load profile', e);
     }

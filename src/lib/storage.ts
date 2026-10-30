@@ -33,28 +33,27 @@ export function loadPartyBillFromStorage(billId?: string): PartyBill {
 export function savePartyBillToStorage(bill: PartyBill): void {
   if (typeof window === 'undefined' || !bill) return;
   try {
-    const updated = {
+    // Strip large Base64 images from members before writing to LocalStorage
+    // to strictly prevent QuotaExceededError and keep browser operations instant
+    const strippedMembers = (bill.members || []).map((m) => {
+      if (m.slipUrl && m.slipUrl.length > 500) {
+        return { ...m, slipUrl: undefined };
+      }
+      return m;
+    });
+
+    const compactBill = {
       ...bill,
+      members: strippedMembers,
       updatedAt: new Date().toISOString(),
     };
-    const serialized = JSON.stringify(updated);
+    const serialized = JSON.stringify(compactBill);
     localStorage.setItem(STORAGE_KEY, serialized);
     if (bill.id) {
       localStorage.setItem(`smart_party_bill_${bill.id}`, serialized);
     }
   } catch (e) {
-    console.warn('LocalStorage save error (likely quota exceeded):', e);
-    // If quota exceeded, try saving without large slip previews in local cache as fallback
-    try {
-      const strippedMembers = bill.members.map((m) => {
-        if (m.slipUrl && m.slipUrl.length > 5000) {
-          return { ...m, slipUrl: undefined };
-        }
-        return m;
-      });
-      const compactBill = { ...bill, members: strippedMembers, updatedAt: new Date().toISOString() };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(compactBill));
-    } catch {}
+    console.warn('LocalStorage save error:', e);
   }
 }
 

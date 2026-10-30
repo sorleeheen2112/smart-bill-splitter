@@ -29,6 +29,7 @@ import {
 } from '@/lib/storage';
 import {
   fetchHostPartyBills,
+  fetchPartyBillFromSupabase,
   savePartyBillToSupabase,
   deletePartyBillFromSupabase,
   subscribeToPartyBill,
@@ -88,51 +89,88 @@ export default function Home() {
           loadedList = remoteBills;
         }
 
-        // If host has no bills in remote database, check if local storage had a bill to adopt
-        if (loadedList.length === 0) {
+        // Check if there are any local storage bills that need to be adopted/merged
+        try {
           const local = loadPartyBillFromStorage();
-          if (local && (local.items.length > 0 || local.members.length > 1) && local.id !== 'sample-bill-1') {
+          if (
+            local &&
+            (local.items?.length > 0 || local.members?.length > 1) &&
+            local.id !== 'sample-bill-1' &&
+            !loadedList.some((b) => b.id === local.id)
+          ) {
             const adoptedBill: PartyBill = {
               ...local,
               hostId: hostUser.id,
               promptPayNumber: local.promptPayNumber || hostUser.defaultPromptPay || '',
               promptPayName: local.promptPayName || `${hostUser.firstName} ${hostUser.lastName || ''}`.trim(),
             };
-            loadedList = [adoptedBill];
+            loadedList = [adoptedBill, ...loadedList];
             if (isSupabaseConfigured) {
-              await savePartyBillToSupabase(adoptedBill, hostUser.id);
+              savePartyBillToSupabase(adoptedBill, hostUser.id).catch(() => {});
             }
-          } else {
-            const freshBill: PartyBill = {
-              id: `party-${Date.now()}`,
-              hostId: hostUser.id,
-              title: `ปาร์ตี้ของ ${hostUser.firstName}`,
-              promptPayNumber: hostUser.defaultPromptPay || '',
-              promptPayName: `${hostUser.firstName} ${hostUser.lastName || ''}`.trim(),
-              date: new Date().toISOString().split('T')[0],
-              vatMode: 'INCLUDE',
-              vatRate: 0.07,
-              serviceChargeRate: 0,
-              sponsorBudget: 0,
-              hostPin: '1234',
-              isPublished: false,
-              gangs: [],
-              members: [
-                {
-                  id: `m-host-${Date.now()}`,
-                  name: hostUser.firstName || 'Host (ฉัน)',
-                  gangIds: [],
-                  isFree: false,
-                  paymentStatus: 'PENDING',
-                  note: 'ผู้จัดการบิล',
-                },
-              ],
-              items: [],
-            };
-            loadedList = [freshBill];
-            if (isSupabaseConfigured) {
-              await savePartyBillToSupabase(freshBill, hostUser.id);
+          }
+
+          if (typeof window !== 'undefined') {
+            for (let i = 0; i < localStorage.length; i++) {
+              const key = localStorage.key(i);
+              if (key && key.startsWith('smart_party_bill_party-')) {
+                try {
+                  const billJson = localStorage.getItem(key);
+                  if (billJson) {
+                    const parsed = JSON.parse(billJson);
+                    if (
+                      parsed &&
+                      parsed.id &&
+                      (parsed.items?.length > 0 || parsed.members?.length > 1) &&
+                      !loadedList.some((b) => b.id === parsed.id)
+                    ) {
+                      const adoptedBill: PartyBill = {
+                        ...parsed,
+                        hostId: hostUser.id,
+                      };
+                      loadedList = [adoptedBill, ...loadedList];
+                      if (isSupabaseConfigured) {
+                        savePartyBillToSupabase(adoptedBill, hostUser.id).catch(() => {});
+                      }
+                    }
+                  }
+                } catch {}
+              }
             }
+          }
+        } catch (e) {}
+
+        // If host has no bills anywhere, create a fresh first bill
+        if (loadedList.length === 0) {
+          const freshBill: PartyBill = {
+            id: `party-${Date.now()}`,
+            hostId: hostUser.id,
+            title: `ปาร์ตี้ของ ${hostUser.firstName}`,
+            promptPayNumber: hostUser.defaultPromptPay || '',
+            promptPayName: `${hostUser.firstName} ${hostUser.lastName || ''}`.trim(),
+            date: new Date().toISOString().split('T')[0],
+            vatMode: 'INCLUDE',
+            vatRate: 0.07,
+            serviceChargeRate: 0,
+            sponsorBudget: 0,
+            hostPin: '1234',
+            isPublished: false,
+            gangs: [],
+            members: [
+              {
+                id: `m-host-${Date.now()}`,
+                name: hostUser.firstName || 'Host (ฉัน)',
+                gangIds: [],
+                isFree: false,
+                paymentStatus: 'PENDING',
+                note: 'ผู้จัดการบิล',
+              },
+            ],
+            items: [],
+          };
+          loadedList = [freshBill];
+          if (isSupabaseConfigured) {
+            await savePartyBillToSupabase(freshBill, hostUser.id);
           }
         }
 
@@ -150,6 +188,24 @@ export default function Home() {
       loadAllBills();
     }
   }, [hostUser, isAuthLoading]);
+
+  // Seamlessly load full active bill details (including slips) when active bill changes or is opened
+  useEffect(() => {
+    if (!activeBillId || !isSupabaseConfigured) return;
+
+    let isMounted = true;
+    fetchPartyBillFromSupabase(activeBillId).then((fullBill) => {
+      if (isMounted && fullBill) {
+        setBills((prev) =>
+          prev.map((b) => (b.id === fullBill.id ? { ...b, ...fullBill } : b))
+        );
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [activeBillId]);
 
   // Real-time synchronization: listen for guest slip uploads or remote updates for active bill
   useEffect(() => {
