@@ -202,7 +202,7 @@ export const SheetSummaryTable: React.FC<SheetSummaryTableProps> = ({
                               )}
                               <span>ชำระแล้ว</span>
                             </button>
-                            {member.slipUrl && (
+                            {(member.slipUrl || member.slipUploadedAt) && (
                               <button
                                 type="button"
                                 onClick={() => onViewSlip(member)}

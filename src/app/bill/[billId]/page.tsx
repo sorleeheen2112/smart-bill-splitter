@@ -814,6 +814,23 @@ export default function DynamicBillPage() {
           if (target) setViewingSlipMember(target);
           return true;
         }}
+        onSlipLoaded={(mId, slipUrl, slipVerification) => {
+          setBill((prev) => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              members: prev.members.map((m) =>
+                m.id === mId
+                  ? {
+                      ...m,
+                      slipUrl,
+                      ...(slipVerification && { slipVerification }),
+                    }
+                  : m
+              ),
+            };
+          });
+        }}
       />
     </div>
   );

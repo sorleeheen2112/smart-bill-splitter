@@ -816,6 +816,27 @@ export default function Home() {
           const target = updated.find((m) => m.id === mId);
           if (target) setViewingSlipMember(target);
         }}
+        onSlipLoaded={(mId, slipUrl, slipVerification) => {
+          // Cache the slip in activeBill state so subsequent opens are instant
+          setBills((prev) =>
+            prev.map((b) =>
+              b.id === activeBill.id
+                ? {
+                    ...b,
+                    members: b.members.map((m) =>
+                      m.id === mId
+                        ? {
+                            ...m,
+                            slipUrl,
+                            ...(slipVerification && { slipVerification }),
+                          }
+                        : m
+                    ),
+                  }
+                : b
+            )
+          );
+        }}
       />
     </div>
   );

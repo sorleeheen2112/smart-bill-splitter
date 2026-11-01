@@ -5,6 +5,7 @@ import { X, CheckCircle2, XCircle, Clock, Loader2, Sparkles, Building2, User, Fi
 import { Member, CalculationResult } from '@/lib/types';
 import { formatTHB } from '@/lib/calculator';
 import { verifySlipWithSlipOk, SlipVerificationResult, isSlipVerificationEnabled, checkSlipOkQuota } from '@/lib/slipok';
+import { fetchMemberSlip } from '@/lib/supabase';
 
 interface SlipVerificationModalProps {
   member: Member | null;
@@ -13,6 +14,7 @@ interface SlipVerificationModalProps {
   onVerify: (memberId: string) => Promise<boolean> | void;
   onReject: (memberId: string) => Promise<boolean> | void;
   onSaveVerification?: (memberId: string, result: SlipVerificationResult) => Promise<boolean> | void;
+  onSlipLoaded?: (memberId: string, slipUrl: string, slipVerification?: any) => void;
 }
 
 export const SlipVerificationModal: React.FC<SlipVerificationModalProps> = ({
@@ -22,9 +24,12 @@ export const SlipVerificationModal: React.FC<SlipVerificationModalProps> = ({
   onVerify,
   onReject,
   onSaveVerification,
+  onSlipLoaded,
 }) => {
   const [actionLoading, setActionLoading] = useState<'verify' | 'reject' | 'autoVerify' | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [currentSlipUrl, setCurrentSlipUrl] = useState<string | undefined>(member?.slipUrl);
+  const [isLoadingSlipImage, setIsLoadingSlipImage] = useState<boolean>(false);
   const [slipOkData, setSlipOkData] = useState<SlipVerificationResult | null>(member?.slipVerification || null);
   const [quotaRemaining, setQuotaRemaining] = useState<number | null>(null);
   const [isCheckingQuota, setIsCheckingQuota] = useState(false);
@@ -35,12 +40,30 @@ export const SlipVerificationModal: React.FC<SlipVerificationModalProps> = ({
   const isAutoVerifying = actionLoading === 'autoVerify';
   const isAnyActionLoading = actionLoading !== null;
 
-  // Hydrate state from member and fetch remaining quota when modal opens (if feature enabled)
+  // Hydrate state from member, fetch slip on-demand if missing, and fetch quota
   useEffect(() => {
+    setCurrentSlipUrl(member?.slipUrl);
     setSlipOkData(member?.slipVerification || null);
     setErrorMessage(null);
 
-    if (isEnabled && member?.slipUrl) {
+    // If member has uploaded a slip but slipUrl is not yet loaded in memory, fetch it on-demand!
+    if (member && !member.slipUrl && (member.paymentStatus === 'SLIP_UPLOADED' || member.slipUploadedAt || member.paymentStatus === 'VERIFIED')) {
+      setIsLoadingSlipImage(true);
+      fetchMemberSlip(member.id)
+        .then((res) => {
+          if (res?.slipUrl) {
+            setCurrentSlipUrl(res.slipUrl);
+            if (res.slipVerification && !member.slipVerification) {
+              setSlipOkData(res.slipVerification);
+            }
+            onSlipLoaded?.(member.id, res.slipUrl, res.slipVerification);
+          }
+        })
+        .catch((err) => console.warn('Failed to load slip image on-demand:', err))
+        .finally(() => setIsLoadingSlipImage(false));
+    }
+
+    if (isEnabled && (member?.slipUrl || currentSlipUrl)) {
       setIsCheckingQuota(true);
       checkSlipOkQuota()
         .then((res) => {
@@ -51,7 +74,7 @@ export const SlipVerificationModal: React.FC<SlipVerificationModalProps> = ({
         .catch((e) => console.warn('Failed to fetch quota:', e))
         .finally(() => setIsCheckingQuota(false));
     }
-  }, [member?.id, member?.slipVerification, isEnabled]);
+  }, [member?.id, member?.slipUrl, isEnabled]);
 
   const handleCheckSlipWithSlipOk = async (url: string) => {
     if (!url || actionLoading || !member) return;
@@ -235,10 +258,10 @@ export const SlipVerificationModal: React.FC<SlipVerificationModalProps> = ({
                 </div>
               )}
 
-              {isEnabled && member.slipUrl && quotaRemaining !== 0 && (
+              {isEnabled && currentSlipUrl && quotaRemaining !== 0 && (
                 <div className="pt-1 flex justify-end">
                   <button
-                    onClick={() => handleCheckSlipWithSlipOk(member.slipUrl!)}
+                    onClick={() => handleCheckSlipWithSlipOk(currentSlipUrl)}
                     disabled={isAutoVerifying || isAnyActionLoading}
                     type="button"
                     className="text-[11px] font-semibold text-teal-700 hover:text-teal-900 underline flex items-center space-x-1 disabled:opacity-50"
@@ -249,7 +272,7 @@ export const SlipVerificationModal: React.FC<SlipVerificationModalProps> = ({
                 </div>
               )}
             </div>
-          ) : (member.slipUrl && isEnabled && quotaRemaining !== 0) ? (
+          ) : (currentSlipUrl && isEnabled && quotaRemaining !== 0) ? (
             <div className="rounded-xl border border-teal-200 bg-teal-50/50 p-3 space-y-2.5">
               <div className="flex items-center justify-between">
                 <span className="flex items-center space-x-1.5 text-xs font-bold text-teal-900">
@@ -270,7 +293,7 @@ export const SlipVerificationModal: React.FC<SlipVerificationModalProps> = ({
               </p>
 
               <button
-                onClick={() => handleCheckSlipWithSlipOk(member.slipUrl!)}
+                onClick={() => handleCheckSlipWithSlipOk(currentSlipUrl)}
                 disabled={isAutoVerifying || isAnyActionLoading}
                 type="button"
                 className="w-full flex items-center justify-center space-x-1.5 rounded-xl border border-teal-600 bg-teal-600 py-2.5 text-xs font-bold text-white hover:bg-teal-700 active:scale-[0.99] transition shadow-xs disabled:opacity-50"
@@ -282,10 +305,15 @@ export const SlipVerificationModal: React.FC<SlipVerificationModalProps> = ({
           ) : null}
 
           {/* Slip Image Preview */}
-          <div className="flex flex-col items-center justify-center rounded-xl border border-slate-200 bg-slate-50 p-2 overflow-hidden max-h-[360px]">
-            {member.slipUrl ? (
+          <div className="flex flex-col items-center justify-center rounded-xl border border-slate-200 bg-slate-50 p-2 overflow-hidden min-h-[220px] max-h-[360px]">
+            {isLoadingSlipImage ? (
+              <div className="flex flex-col items-center justify-center py-12 space-y-2 text-slate-500">
+                <Loader2 className="h-6 w-6 animate-spin text-teal-600" />
+                <span className="text-xs font-semibold">กำลังโหลดรูปสลิป...</span>
+              </div>
+            ) : currentSlipUrl ? (
               <img
-                src={member.slipUrl}
+                src={currentSlipUrl}
                 alt={`Slip for ${member.name}`}
                 className="max-h-[340px] w-auto object-contain rounded-lg shadow-sm"
               />
